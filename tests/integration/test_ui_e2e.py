@@ -87,7 +87,7 @@ class TestUIE2E:
         resp = env["client"].get("/api/docs/guides")
         assert resp.status_code == 200
         guides = resp.json()
-        assert len(guides) == 5
+        assert len(guides) == 6  # was 5, now includes 00-getting-started
 
     def test_docs_guide_content(self, env) -> None:
         resp = env["client"].get("/api/docs/guides/01-mev-on-solana")

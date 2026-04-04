@@ -1,0 +1,47 @@
+- generic [ref=e3]:
+  - navigation [ref=e4]:
+    - generic [ref=e5]: M
+    - link "Dashboard" [ref=e6] [cursor=pointer]:
+      - /url: /
+      - img [ref=e7]
+    - link "Backtest" [ref=e12] [cursor=pointer]:
+      - /url: /backtest
+      - img [ref=e13]
+    - link "Config" [ref=e15] [cursor=pointer]:
+      - /url: /config
+      - img [ref=e16]
+    - link "Analysis" [ref=e19] [cursor=pointer]:
+      - /url: /analysis
+      - img [ref=e20]
+    - link "Data" [ref=e22] [cursor=pointer]:
+      - /url: /data
+      - img [ref=e23]
+    - link "Learn" [ref=e27] [cursor=pointer]:
+      - /url: /learn
+      - img [ref=e28]
+    - generic "idle" [ref=e30]
+  - main [ref=e32]:
+    - generic [ref=e33]:
+      - generic [ref=e34]:
+        - heading "Analysis" [level=1] [ref=e35]
+        - generic [ref=e36]:
+          - combobox [ref=e37]:
+            - option "results.db" [selected]
+            - option "backtest.db"
+            - option "paper_trade.db"
+          - button "Export CSV" [ref=e38]:
+            - img [ref=e39]
+            - text: Export CSV
+      - generic [ref=e42]:
+        - generic [ref=e43]:
+          - generic [ref=e44]: Trades
+          - generic [ref=e45]:
+            - combobox [ref=e46]:
+              - 'option "Sort: Time" [selected]'
+              - 'option "Sort: Spread"'
+              - 'option "Sort: Profit"'
+            - combobox [ref=e47]:
+              - option "All directions" [selected]
+              - option "BUY_DEX"
+              - option "SELL_DEX"
+        - generic [ref=e48]: Loading…

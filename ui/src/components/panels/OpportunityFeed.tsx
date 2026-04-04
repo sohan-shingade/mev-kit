@@ -38,17 +38,17 @@ export default function OpportunityFeed({ opportunities }: Props) {
               <span className={`w-14 ${dirColor}`}>
                 {opp.direction === "BUY_DEX" ? "BUY" : "SELL"}
               </span>
-              <span className="w-16">{opp.spread_bps.toFixed(1)} bps</span>
+              <span className="w-16">{(opp.spread_bps ?? 0).toFixed(1)} bps</span>
               <span className="w-18">
-                {opp.estimated_profit_sol >= 0 ? "+" : ""}
-                {opp.estimated_profit_sol.toFixed(4)}
+                {(opp.estimated_profit_sol ?? 0) >= 0 ? "+" : ""}
+                {(opp.estimated_profit_sol ?? 0).toFixed(4)}
               </span>
               <span className={`w-18 ${plColor}`}>
-                {opp.simulated_profit_sol >= 0 ? "+" : ""}
-                {opp.simulated_profit_sol.toFixed(4)}
+                {(opp.simulated_profit_sol ?? 0) >= 0 ? "+" : ""}
+                {(opp.simulated_profit_sol ?? 0).toFixed(4)}
               </span>
               <span className="w-12 text-text-secondary">
-                {opp.sim_latency_ms.toFixed(0)}ms
+                {(opp.sim_latency_ms ?? 0).toFixed(0)}ms
               </span>
               <span className={`w-6 ${plColor}`}>
                 {opp.success ? "✓" : "✗"}

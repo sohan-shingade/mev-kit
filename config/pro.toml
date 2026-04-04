@@ -1,0 +1,34 @@
+# mev-kit pro tier configuration
+# Production infrastructure. $15-50K/month.
+
+[pipeline]
+mode = "live"
+strategy = "cex_dex_arb"
+
+[ingest]
+adapters = ["geyser", "binance_ws"]        # Geyser for sub-1ms state observation
+
+[strategy]
+min_spread_bps = 8.0                        # Lower threshold — faster infra can capture thinner spreads
+fee_bps = 30.0
+pair = "SOL/USDC"
+position_size_sol = 5.0
+max_position_size_sol = 50.0
+
+[simulator]
+type = "forked_validator"                   # Local mainnet fork for full-fidelity simulation
+
+[sink]
+type = "multi_path"                         # Jito + bloXroute + direct TPU in parallel
+tip_percentage = 0.4
+min_tip_lamports = 10000
+max_tip_lamports = 5000000
+
+[risk]
+max_daily_loss_sol = 50.0
+max_consecutive_misses = 10
+circuit_breaker_enabled = true
+
+[data]
+parquet_dir = "./data/"
+results_db = "./data/results.db"

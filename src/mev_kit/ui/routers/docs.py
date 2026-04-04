@@ -30,5 +30,7 @@ async def get_guide(slug: str) -> dict[str, str]:
     if not path.exists():
         return {"error": f"Guide not found: {slug}"}
     raw = path.read_text()
+    first_line = raw.split("\n")[0].lstrip("# ").strip()
+    title = first_line if first_line else slug
     html = markdown.markdown(raw, extensions=["fenced_code", "tables", "codehilite"])
-    return {"slug": slug, "markdown": raw, "html": html}
+    return {"slug": slug, "title": title, "markdown": raw, "html": html}

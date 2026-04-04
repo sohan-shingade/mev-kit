@@ -40,7 +40,7 @@ class ConfigManager:
         """Return which API keys are set in the environment (never values)."""
         keys = [
             "HELIUS_API_KEY", "HELIUS_RPC_URL", "SOLANA_RPC_URL",
-            "JITO_BLOCK_ENGINE_URL", "WALLET_KEYPAIR_PATH",
+            "JITO_BLOCK_ENGINE_URL", "WALLET_KEYPAIR_PATH", "BINANCE_WS_URL",
         ]
         return {k: bool(os.environ.get(k)) for k in keys}
 

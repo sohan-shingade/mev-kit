@@ -141,7 +141,7 @@ export default function Analysis() {
     i: i + 1,
     pnl: trades
       .slice(0, i + 1)
-      .reduce((acc, r) => acc + (r.simulated_profit_sol || r.estimated_profit_sol || 0), 0),
+      .reduce((acc, r) => acc + (r.simulated_profit_sol ?? r.estimated_profit_sol ?? 0), 0),
   }));
 
   // Spread distribution
@@ -248,6 +248,7 @@ export default function Analysis() {
       )}
 
       {trades.length > 0 && (
+        <>
         <div className="grid grid-cols-3 gap-2">
           <div className="bg-bg-panel border border-border rounded p-3 col-span-3 md:col-span-1">
             <div className="text-[10px] text-text-secondary uppercase tracking-wider mb-2">
@@ -332,6 +333,12 @@ export default function Analysis() {
             </ResponsiveContainer>
           </div>
         </div>
+        {total > PER_PAGE && (
+          <p className="text-[10px] text-text-secondary text-center italic">
+            Charts show current page ({trades.length} of {total.toLocaleString()} trades). Use pagination to explore.
+          </p>
+        )}
+        </>
       )}
 
       <div className="bg-bg-panel border border-border rounded overflow-hidden">
@@ -347,7 +354,7 @@ export default function Analysis() {
             >
               <option value="timestamp">Sort: Time</option>
               <option value="spread_bps">Sort: Spread</option>
-              <option value="estimated_profit_sol">Sort: Profit</option>
+              <option value="simulated_profit_sol">Sort: Profit</option>
             </select>
             <select
               value={direction}

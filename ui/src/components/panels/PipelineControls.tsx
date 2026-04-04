@@ -13,14 +13,22 @@ export default function PipelineControls({ state, mode }: Props) {
     if (selectedMode === "live") {
       if (!confirm("⚠️ Live mode spends real SOL. Continue?")) return;
     }
-    await post("/api/pipeline/start", { mode: selectedMode, config: {} });
+    try {
+      await post("/api/pipeline/start", { mode: selectedMode, config: {} });
+    } catch {
+      alert("Failed to start pipeline");
+    }
   };
 
   const handleStop = async () => {
     if (mode === "live") {
       if (!confirm("Stop live pipeline?")) return;
     }
-    await post("/api/pipeline/stop", {});
+    try {
+      await post("/api/pipeline/stop", {});
+    } catch {
+      alert("Failed to stop pipeline");
+    }
   };
 
   if (state === "running") {

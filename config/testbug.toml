@@ -1,0 +1,6 @@
+
+[pipeline]
+mode = "paper"
+
+[strategy]
+min_spread_bps = 25

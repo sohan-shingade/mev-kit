@@ -33,12 +33,14 @@ class BacktestRunner:
                 "updates_processed": self._pipeline.updates_processed,
                 "opportunities_detected": self._pipeline.opportunities_detected,
             }
-        if self._state == "completed":
+        if self._state in ("completed", "error"):
             result["results"] = self._results
         return result
 
     async def run(self, data_path: str, config: dict) -> None:
         """Run a backtest against Parquet data."""
+        if self._state == "running":
+            raise RuntimeError("Backtest already running")
         self._state = "running"
 
         pipeline_config = PipelineConfig(
@@ -69,14 +71,35 @@ class BacktestRunner:
 
         try:
             await self._pipeline.run()
-        finally:
             self._state = "completed"
             self._results = self._compute_results()
+        except Exception as exc:
+            self._state = "error"
+            self._results = {
+                "total_trades": 0,
+                "total_profit_sol": 0.0,
+                "avg_profit_sol": 0.0,
+                "win_rate": 0.0,
+                "best_trade_sol": 0.0,
+                "worst_trade_sol": 0.0,
+                "avg_spread_bps": 0.0,
+                "trades": [],
+                "error": str(exc),
+            }
 
     def _compute_results(self) -> dict[str, Any]:
         """Compute summary from backtest sink results."""
         if not self._sink or not self._sink.results:
-            return {"total_trades": 0, "total_profit_sol": 0.0}
+            return {
+                "total_trades": 0,
+                "total_profit_sol": 0.0,
+                "avg_profit_sol": 0.0,
+                "win_rate": 0.0,
+                "best_trade_sol": 0.0,
+                "worst_trade_sol": 0.0,
+                "avg_spread_bps": 0.0,
+                "trades": [],
+            }
 
         results = self._sink.results
         profits = [r["simulated_profit_sol"] for r in results]

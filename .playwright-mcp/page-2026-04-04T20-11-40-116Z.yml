@@ -1,0 +1,180 @@
+- generic [ref=e3]:
+  - navigation [ref=e4]:
+    - generic [ref=e5]: M
+    - link "Dashboard" [ref=e6] [cursor=pointer]:
+      - /url: /
+      - img [ref=e7]
+    - link "Backtest" [ref=e12] [cursor=pointer]:
+      - /url: /backtest
+      - img [ref=e13]
+    - link "Config" [ref=e15] [cursor=pointer]:
+      - /url: /config
+      - img [ref=e16]
+    - link "Analysis" [ref=e19] [cursor=pointer]:
+      - /url: /analysis
+      - img [ref=e20]
+    - link "Data" [ref=e22] [cursor=pointer]:
+      - /url: /data
+      - img [ref=e23]
+    - link "Learn" [ref=e27] [cursor=pointer]:
+      - /url: /learn
+      - img [ref=e28]
+    - generic "idle" [ref=e30]
+  - main [ref=e32]:
+    - generic [ref=e33]:
+      - generic [ref=e34]:
+        - generic [ref=e35]: Guides
+        - list [ref=e36]:
+          - listitem [ref=e37]:
+            - 'button "MEV on Solana: Concepts" [ref=e38]':
+              - img [ref=e39]
+              - generic [ref=e41]: "MEV on Solana: Concepts"
+              - img [ref=e42]
+          - listitem [ref=e44]:
+            - button "How CEX-DEX Arbitrage Works" [ref=e45]:
+              - img [ref=e46]
+              - generic [ref=e48]: How CEX-DEX Arbitrage Works
+          - listitem [ref=e49]:
+            - button "The mev-kit Pipeline" [ref=e50]:
+              - img [ref=e51]
+              - generic [ref=e53]: The mev-kit Pipeline
+          - listitem [ref=e54]:
+            - button "Writing a Custom Detector" [ref=e55]:
+              - img [ref=e56]
+              - generic [ref=e58]: Writing a Custom Detector
+          - listitem [ref=e59]:
+            - button "Backtesting Your Strategy" [ref=e60]:
+              - img [ref=e61]
+              - generic [ref=e63]: Backtesting Your Strategy
+      - generic [ref=e65]:
+        - generic [ref=e66]: Loading…
+        - generic [ref=e67]:
+          - heading "External Resources" [level=2] [ref=e68]
+          - generic [ref=e69]:
+            - generic [ref=e70]:
+              - heading "Solana Core" [level=3] [ref=e71]
+              - list [ref=e72]:
+                - listitem [ref=e73]:
+                  - link "Solana Docs Official Solana developer documentation" [ref=e74] [cursor=pointer]:
+                    - /url: https://docs.solana.com
+                    - img [ref=e75]
+                    - generic [ref=e79]:
+                      - generic [ref=e80]: Solana Docs
+                      - generic [ref=e81]: Official Solana developer documentation
+                - listitem [ref=e82]:
+                  - link "Solana Cookbook Practical Solana development examples" [ref=e83] [cursor=pointer]:
+                    - /url: https://solanacookbook.com
+                    - img [ref=e84]
+                    - generic [ref=e88]:
+                      - generic [ref=e89]: Solana Cookbook
+                      - generic [ref=e90]: Practical Solana development examples
+                - listitem [ref=e91]:
+                  - link "Solana Program Library Token, stake, governance programs" [ref=e92] [cursor=pointer]:
+                    - /url: https://spl.solana.com
+                    - img [ref=e93]
+                    - generic [ref=e97]:
+                      - generic [ref=e98]: Solana Program Library
+                      - generic [ref=e99]: Token, stake, governance programs
+            - generic [ref=e100]:
+              - heading "MEV & Block Building" [level=3] [ref=e101]
+              - list [ref=e102]:
+                - listitem [ref=e103]:
+                  - link "Jito Docs Jito block engine, bundles, and tips" [ref=e104] [cursor=pointer]:
+                    - /url: https://docs.jito.wtf
+                    - img [ref=e105]
+                    - generic [ref=e109]:
+                      - generic [ref=e110]: Jito Docs
+                      - generic [ref=e111]: Jito block engine, bundles, and tips
+                - listitem [ref=e112]:
+                  - link "Jito MEV Overview State of MEV on Solana" [ref=e113] [cursor=pointer]:
+                    - /url: https://www.jito.wtf/blog/the-state-of-mev-on-solana
+                    - img [ref=e114]
+                    - generic [ref=e118]:
+                      - generic [ref=e119]: Jito MEV Overview
+                      - generic [ref=e120]: State of MEV on Solana
+                - listitem [ref=e121]:
+                  - link "Flashbots MEV Wiki MEV fundamentals (Ethereum-focused but broadly applicable)" [ref=e122] [cursor=pointer]:
+                    - /url: https://ethereum.org/en/developers/docs/mev
+                    - img [ref=e123]
+                    - generic [ref=e127]:
+                      - generic [ref=e128]: Flashbots MEV Wiki
+                      - generic [ref=e129]: MEV fundamentals (Ethereum-focused but broadly applicable)
+            - generic [ref=e130]:
+              - heading "DEX Protocols" [level=3] [ref=e131]
+              - list [ref=e132]:
+                - listitem [ref=e133]:
+                  - link "Raydium SDK Official Raydium SDK for pool interactions" [ref=e134] [cursor=pointer]:
+                    - /url: https://github.com/raydium-io/raydium-sdk-V2
+                    - img [ref=e135]
+                    - generic [ref=e139]:
+                      - generic [ref=e140]: Raydium SDK
+                      - generic [ref=e141]: Official Raydium SDK for pool interactions
+                - listitem [ref=e142]:
+                  - link "Jupiter API Docs Jupiter swap aggregator and price API" [ref=e143] [cursor=pointer]:
+                    - /url: https://dev.jup.ag
+                    - img [ref=e144]
+                    - generic [ref=e148]:
+                      - generic [ref=e149]: Jupiter API Docs
+                      - generic [ref=e150]: Jupiter swap aggregator and price API
+                - listitem [ref=e151]:
+                  - link "Orca SDK Orca Whirlpools concentrated liquidity" [ref=e152] [cursor=pointer]:
+                    - /url: https://github.com/orca-so/whirlpools
+                    - img [ref=e153]
+                    - generic [ref=e157]:
+                      - generic [ref=e158]: Orca SDK
+                      - generic [ref=e159]: Orca Whirlpools concentrated liquidity
+            - generic [ref=e160]:
+              - heading "Data & RPC" [level=3] [ref=e161]
+              - list [ref=e162]:
+                - listitem [ref=e163]:
+                  - link "Helius Docs Enhanced RPC, webhooks, and DAS API" [ref=e164] [cursor=pointer]:
+                    - /url: https://docs.helius.dev
+                    - img [ref=e165]
+                    - generic [ref=e169]:
+                      - generic [ref=e170]: Helius Docs
+                      - generic [ref=e171]: Enhanced RPC, webhooks, and DAS API
+                - listitem [ref=e172]:
+                  - link "Geyser Plugin Interface Real-time account and transaction streaming" [ref=e173] [cursor=pointer]:
+                    - /url: https://docs.solana.com/developing/plugins/geyser-plugins
+                    - img [ref=e174]
+                    - generic [ref=e178]:
+                      - generic [ref=e179]: Geyser Plugin Interface
+                      - generic [ref=e180]: Real-time account and transaction streaming
+                - listitem [ref=e181]:
+                  - link "Yellowstone gRPC High-performance Solana gRPC streaming" [ref=e182] [cursor=pointer]:
+                    - /url: https://github.com/rpcpool/yellowstone-grpc
+                    - img [ref=e183]
+                    - generic [ref=e187]:
+                      - generic [ref=e188]: Yellowstone gRPC
+                      - generic [ref=e189]: High-performance Solana gRPC streaming
+                - listitem [ref=e190]:
+                  - link "Binance WS Streams CEX price feeds via WebSocket" [ref=e191] [cursor=pointer]:
+                    - /url: https://developers.binance.com/docs/binance-spot-api-docs/web-socket-streams
+                    - img [ref=e192]
+                    - generic [ref=e196]:
+                      - generic [ref=e197]: Binance WS Streams
+                      - generic [ref=e198]: CEX price feeds via WebSocket
+            - generic [ref=e199]:
+              - heading "Python Libraries" [level=3] [ref=e200]
+              - list [ref=e201]:
+                - listitem [ref=e202]:
+                  - link "solders Rust-backed Python library for Solana types" [ref=e203] [cursor=pointer]:
+                    - /url: https://kevinheavey.github.io/solders
+                    - img [ref=e204]
+                    - generic [ref=e208]:
+                      - generic [ref=e209]: solders
+                      - generic [ref=e210]: Rust-backed Python library for Solana types
+                - listitem [ref=e211]:
+                  - link "solana-py Python client for Solana JSON RPC" [ref=e212] [cursor=pointer]:
+                    - /url: https://michaelhly.github.io/solana-py
+                    - img [ref=e213]
+                    - generic [ref=e217]:
+                      - generic [ref=e218]: solana-py
+                      - generic [ref=e219]: Python client for Solana JSON RPC
+                - listitem [ref=e220]:
+                  - link "Pydantic v2 Data validation used for all mev-kit models" [ref=e221] [cursor=pointer]:
+                    - /url: https://docs.pydantic.dev/latest
+                    - img [ref=e222]
+                    - generic [ref=e226]:
+                      - generic [ref=e227]: Pydantic v2
+                      - generic [ref=e228]: Data validation used for all mev-kit models

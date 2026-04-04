@@ -1,0 +1,32 @@
+# mev-kit free tier configuration
+# All services are free-tier or local. $0/month.
+
+[pipeline]
+mode = "paper"                    # "backtest", "paper", "live"
+strategy = "cex_dex_arb"
+
+[ingest]
+adapters = ["helius_ws", "binance_ws"]
+
+[strategy]
+min_spread_bps = 15.0
+fee_bps = 30.0
+pair = "SOL/USDC"
+position_size_sol = 0.01
+max_position_size_sol = 0.1
+
+[simulator]
+type = "rpc"                      # Uses simulateTransaction via Helius free tier
+
+[sink]
+type = "paper_trade"              # Log to SQLite, no real execution
+db_path = "./data/results.db"
+
+[risk]
+max_daily_loss_sol = 0.1
+max_consecutive_misses = 5
+circuit_breaker_enabled = true
+
+[data]
+parquet_dir = "./data/"
+results_db = "./data/results.db"

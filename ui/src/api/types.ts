@@ -55,6 +55,7 @@ export interface Guide {
 export interface TradeRow {
   id: string;
   timestamp: string;
+  detected_at?: string;
   type: string;
   direction: string;
   pair: string;
@@ -69,7 +70,7 @@ export interface TradeRow {
 }
 
 export interface BacktestStatus {
-  state: "idle" | "running" | "completed";
+  state: "idle" | "running" | "completed" | "error";
   progress?: { updates_processed: number; opportunities_detected: number };
   results?: BacktestResults;
 }

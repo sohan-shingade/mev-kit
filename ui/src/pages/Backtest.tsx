@@ -14,7 +14,7 @@ interface BacktestConfig {
 }
 
 const TRADE_COLUMNS = [
-  { key: "timestamp", label: "Time" },
+  { key: "detected_at", label: "Time" },
   { key: "direction", label: "Dir" },
   { key: "pair", label: "Pair" },
   { key: "spread_bps", label: "Spread bps" },
@@ -45,7 +45,7 @@ export default function Backtest() {
   const [config, setConfig] = useState<BacktestConfig>({
     data_file: "",
     min_spread_bps: 20,
-    fee_bps: 5,
+    fee_bps: 30,
     position_size_sol: 0.1,
     simulate_before_execute: true,
   });
@@ -96,7 +96,8 @@ export default function Backtest() {
     }
   }
 
-  function handleCancel() {
+  async function handleCancel() {
+    try { await post("/api/backtest/stop", {}); } catch {}
     setStatus({ state: "idle" });
     if (pollRef.current) clearInterval(pollRef.current);
   }
@@ -106,7 +107,10 @@ export default function Backtest() {
     setPage(1);
   }
 
-  const trades: TradeRow[] = status.results?.trades ?? [];
+  const trades: TradeRow[] = (status.results?.trades ?? []).map((t: TradeRow): TradeRow => ({
+    ...t,
+    detected_at: t.detected_at ?? t.timestamp,
+  }));
   const pageCount = Math.max(1, Math.ceil(trades.length / PER_PAGE));
   const pagedTrades = trades.slice((page - 1) * PER_PAGE, page * PER_PAGE);
 

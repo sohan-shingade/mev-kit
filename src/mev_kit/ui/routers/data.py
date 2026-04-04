@@ -11,6 +11,7 @@ import httpx
 import polars as pl
 import structlog
 from fastapi import APIRouter, Request
+from fastapi.responses import FileResponse
 
 from mev_kit.ui.data_manager import DataManager
 
@@ -34,6 +35,14 @@ async def preview_file(request: Request, name: str, limit: int = 10) -> dict[str
         return mgr.preview(name, limit)
     except FileNotFoundError:
         return {"error": f"File not found: {name}"}
+
+
+@router.get("/files/{name}/download")
+async def download_file(request: Request, name: str):
+    path = Path(request.app.state.data_dir) / name
+    if not path.exists():
+        return {"error": f"File not found: {name}"}
+    return FileResponse(str(path), filename=name, media_type="application/octet-stream")
 
 
 @router.delete("/files/{name}")
