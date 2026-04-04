@@ -113,22 +113,25 @@ async def _run_binance_fetch(
     seconds_map = {"1s": 1, "1m": 60, "5m": 300, "15m": 900, "1h": 3600, "4h": 14400, "1d": 86400}
     secs = seconds_map.get(interval, 60)
     total_candles = (days * 86400) // secs
-    batches = (total_candles + max_limit - 1) // max_limit
+    max_batches = (total_candles + max_limit - 1) // max_limit
 
     _fetch_jobs[job_id]["total"] = total_candles
     all_rows: list[dict] = []
-    start_time: int | None = None
+
+    # Start from N days ago
+    now_ms = int(datetime.now(UTC).timestamp() * 1000)
+    start_time = now_ms - (days * 86400 * 1000)
 
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
-            for batch in range(batches):
+            for batch in range(max_batches):
                 params: dict[str, Any] = {
                     "symbol": symbol,
                     "interval": interval,
                     "limit": max_limit,
+                    "startTime": start_time,
+                    "endTime": now_ms,
                 }
-                if start_time:
-                    params["startTime"] = start_time
 
                 resp = await client.get(url, params=params)
                 resp.raise_for_status()
@@ -149,11 +152,18 @@ async def _run_binance_fetch(
                         "close": float(candle[4]),
                     })
 
-                start_time = int(raw[-1][0]) + 1
                 _fetch_jobs[job_id]["progress"] = len(all_rows)
+                _fetch_jobs[job_id]["total"] = max(total_candles, len(all_rows))
 
-                if batch < batches - 1:
-                    await asyncio.sleep(0.1)
+                # If we got fewer than limit, we've exhausted available data
+                if len(raw) < max_limit:
+                    break
+
+                # Advance start_time past the last candle
+                start_time = int(raw[-1][0]) + 1
+
+                # Rate limit — Binance US is stricter
+                await asyncio.sleep(0.3 if use_us else 0.1)
 
         if all_rows:
             df = pl.DataFrame(all_rows)
