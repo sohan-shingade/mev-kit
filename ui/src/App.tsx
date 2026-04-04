@@ -6,6 +6,7 @@ import Config from "./pages/Config";
 import Analysis from "./pages/Analysis";
 import Data from "./pages/Data";
 import Learn from "./pages/Learn";
+import { ToastContainer } from "./components/common/Toast";
 
 export default function App() {
   return (
@@ -20,6 +21,7 @@ export default function App() {
           <Route path="/learn" element={<Learn />} />
         </Route>
       </Routes>
+      <ToastContainer />
     </BrowserRouter>
   );
 }
