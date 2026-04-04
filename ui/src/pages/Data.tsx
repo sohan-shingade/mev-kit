@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { get, post, del } from "../api/client";
 import type { DataFile } from "../api/types";
 import Modal from "../components/common/Modal";
@@ -33,6 +33,35 @@ interface FetchBinanceForm {
   days: number;
 }
 
+interface FetchJob {
+  status: "running" | "completed" | "error";
+  progress: number;
+  total?: number;
+  file?: string;
+  rows?: number;
+  error?: string;
+}
+
+const POOL_PRESETS = [
+  { label: "SOL/USDC (Raydium)", address: "58oQChx4yWmvKdwLLZzBi4ChoCc2fqCUWBkwMihLYQo2" },
+  { label: "SOL/USDT (Raydium)", address: "7XawhbbxtsRcQA8KTkHT9f9nc6d69UwqCDh6U5EEbEmX" },
+  { label: "SOL/USDC (Orca Whirlpool)", address: "HJPjoWUrhoZzkNfRpHuieeFk9BcLEjS1rKNhqTUFi2Ba" },
+  { label: "mSOL/SOL (Raydium)", address: "EGZ7tiLeH62TPV1gL8WwbXGzEPa9zmcpVnnkPKKnrE2U" },
+  { label: "JitoSOL/SOL (Raydium)", address: "2uoKbPEidR7FBnCHsMPkjRsH4pMtDMgw7f8ickPRPfwK" },
+  { label: "RAY/USDC (Raydium)", address: "6UmmUiYoBjSrhakAobJw8BvkmJtDVxaeBtbt7rxWo1mg" },
+  { label: "BONK/SOL (Raydium)", address: "BqnpCdDLPV2pFdAaLnVidmn3G93RP2p5oRdGEY2sJGez" },
+];
+
+const BINANCE_PRESETS = [
+  { label: "SOL/USDT", symbol: "SOLUSDT" },
+  { label: "SOL/USDC", symbol: "SOLUSDC" },
+  { label: "ETH/USDT", symbol: "ETHUSDT" },
+  { label: "BTC/USDT", symbol: "BTCUSDT" },
+  { label: "BONK/USDT", symbol: "BONKUSDT" },
+  { label: "JTO/USDT", symbol: "JTOUSDT" },
+  { label: "RAY/USDT", symbol: "RAYUSDT" },
+];
+
 export default function Data() {
   const [files, setFiles] = useState<DataFile[]>([]);
   const [loading, setLoading] = useState(false);
@@ -44,15 +73,17 @@ export default function Data() {
   const [fetchingHist, setFetchingHist] = useState(false);
   const [fetchingBinance, setFetchingBinance] = useState(false);
   const [histForm, setHistForm] = useState<FetchHistoricalForm>({
-    pool_address: "",
+    pool_address: POOL_PRESETS[0].address,
     interval: "1m",
     duration: "7d",
   });
   const [binanceForm, setBinanceForm] = useState<FetchBinanceForm>({
-    symbol: "SOLUSDC",
+    symbol: BINANCE_PRESETS[0].symbol,
     interval: "1m",
     days: 7,
   });
+  const [fetchJobs, setFetchJobs] = useState<Record<string, FetchJob>>({});
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const fetchFiles = useCallback(async () => {
     setLoading(true);
@@ -65,6 +96,37 @@ export default function Data() {
       setLoading(false);
     }
   }, []);
+
+  const fetchJobStatus = useCallback(async () => {
+    try {
+      const jobs = await get<Record<string, FetchJob>>("/api/data/fetch/status");
+      setFetchJobs(jobs);
+      // If any job just completed, refresh file list
+      const anyCompleted = Object.values(jobs).some((j) => j.status === "completed");
+      if (anyCompleted) {
+        fetchFiles();
+      }
+    } catch {
+      // silently ignore status poll errors
+    }
+  }, [fetchFiles]);
+
+  // Start/stop polling based on running jobs
+  useEffect(() => {
+    const hasRunning = Object.values(fetchJobs).some((j) => j.status === "running");
+    if (hasRunning && !pollRef.current) {
+      pollRef.current = setInterval(fetchJobStatus, 2000);
+    } else if (!hasRunning && pollRef.current) {
+      clearInterval(pollRef.current);
+      pollRef.current = null;
+    }
+    return () => {
+      if (pollRef.current) {
+        clearInterval(pollRef.current);
+        pollRef.current = null;
+      }
+    };
+  }, [fetchJobs, fetchJobStatus]);
 
   useEffect(() => {
     fetchFiles();
@@ -106,9 +168,20 @@ export default function Data() {
     }
     setFetchingHist(true);
     try {
-      await post("/api/data/fetch/historical", histForm);
-      toast("Historical fetch started", "success");
-      setTimeout(fetchFiles, 2000);
+      const result = await post<{ status: string; job_id?: string; error?: string }>(
+        "/api/data/fetch/historical",
+        histForm
+      );
+      if (result.status === "error") {
+        toast(result.error ?? "Fetch failed", "error");
+      } else {
+        toast("Historical fetch started", "success");
+        // Kick off first status poll immediately
+        fetchJobStatus();
+        if (!pollRef.current) {
+          pollRef.current = setInterval(fetchJobStatus, 2000);
+        }
+      }
     } catch {
       toast("Failed to start historical fetch", "error");
     } finally {
@@ -123,9 +196,19 @@ export default function Data() {
     }
     setFetchingBinance(true);
     try {
-      await post("/api/data/fetch/binance", binanceForm);
-      toast("Binance fetch started", "success");
-      setTimeout(fetchFiles, 2000);
+      const result = await post<{ status: string; job_id?: string; error?: string }>(
+        "/api/data/fetch/binance",
+        binanceForm
+      );
+      if (result.status === "error") {
+        toast(result.error ?? "Fetch failed", "error");
+      } else {
+        toast("Binance fetch started", "success");
+        fetchJobStatus();
+        if (!pollRef.current) {
+          pollRef.current = setInterval(fetchJobStatus, 2000);
+        }
+      }
     } catch {
       toast("Failed to start Binance fetch", "error");
     } finally {
@@ -139,6 +222,8 @@ export default function Data() {
 
   const inputCls =
     "bg-bg-main border border-border rounded px-2 py-1.5 text-xs text-text-primary focus:outline-none focus:border-accent-indigo font-mono";
+
+  const jobEntries = Object.entries(fetchJobs);
 
   return (
     <div className="p-4 flex flex-col gap-4">
@@ -224,11 +309,25 @@ export default function Data() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Fetch Historical (Raydium) */}
         <div className="bg-bg-panel border border-border rounded p-4 flex flex-col gap-3">
           <h2 className="text-[10px] text-text-secondary uppercase tracking-wider font-semibold">
             Fetch Historical (Raydium)
           </h2>
           <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] text-text-secondary">Pool Preset</label>
+              <select
+                value={histForm.pool_address}
+                onChange={(e) => setHistForm((f) => ({ ...f, pool_address: e.target.value }))}
+                className={inputCls}
+              >
+                {POOL_PRESETS.map((p) => (
+                  <option key={p.address} value={p.address}>{p.label}</option>
+                ))}
+                <option value="">Custom…</option>
+              </select>
+            </div>
             <div className="flex flex-col gap-1">
               <label className="text-[10px] text-text-secondary">Pool Address</label>
               <input
@@ -275,18 +374,32 @@ export default function Data() {
           </button>
         </div>
 
+        {/* Fetch Binance OHLCV */}
         <div className="bg-bg-panel border border-border rounded p-4 flex flex-col gap-3">
           <h2 className="text-[10px] text-text-secondary uppercase tracking-wider font-semibold">
             Fetch Binance OHLCV
           </h2>
           <div className="flex flex-col gap-2">
             <div className="flex flex-col gap-1">
+              <label className="text-[10px] text-text-secondary">Symbol Preset</label>
+              <select
+                value={binanceForm.symbol}
+                onChange={(e) => setBinanceForm((f) => ({ ...f, symbol: e.target.value }))}
+                className={inputCls}
+              >
+                {BINANCE_PRESETS.map((p) => (
+                  <option key={p.symbol} value={p.symbol}>{p.label}</option>
+                ))}
+                <option value="">Custom…</option>
+              </select>
+            </div>
+            <div className="flex flex-col gap-1">
               <label className="text-[10px] text-text-secondary">Symbol</label>
               <input
                 type="text"
                 value={binanceForm.symbol}
                 onChange={(e) => setBinanceForm((f) => ({ ...f, symbol: e.target.value }))}
-                placeholder="e.g. SOLUSDC"
+                placeholder="e.g. SOLUSDT"
                 className={inputCls}
               />
             </div>
@@ -327,6 +440,62 @@ export default function Data() {
           </button>
         </div>
       </div>
+
+      {/* Fetch Job Status */}
+      {jobEntries.length > 0 && (
+        <div className="bg-bg-panel border border-border rounded p-4 flex flex-col gap-3">
+          <h2 className="text-[10px] text-text-secondary uppercase tracking-wider font-semibold">
+            Fetch Jobs
+          </h2>
+          <div className="flex flex-col gap-2">
+            {jobEntries.map(([id, job]) => {
+              const pct =
+                job.total && job.total > 0
+                  ? Math.min(100, Math.round((job.progress / job.total) * 100))
+                  : job.status === "completed"
+                  ? 100
+                  : 0;
+
+              return (
+                <div key={id} className="flex flex-col gap-1">
+                  <div className="flex items-center justify-between">
+                    <span className="font-mono text-[10px] text-text-secondary truncate max-w-[60%]">
+                      {id}
+                    </span>
+                    <span
+                      className={`text-[10px] font-semibold ${
+                        job.status === "completed"
+                          ? "text-accent-green"
+                          : job.status === "error"
+                          ? "text-accent-red"
+                          : "text-accent-amber"
+                      }`}
+                    >
+                      {job.status === "running"
+                        ? `${job.progress}${job.total ? ` / ${job.total}` : ""} rows`
+                        : job.status === "completed"
+                        ? `done · ${job.rows?.toLocaleString() ?? 0} rows${job.file ? ` · ${job.file}` : ""}`
+                        : job.error ?? "error"}
+                    </span>
+                  </div>
+                  <div className="h-1 rounded-full bg-bg-main overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all duration-300 ${
+                        job.status === "error"
+                          ? "bg-accent-red"
+                          : job.status === "completed"
+                          ? "bg-accent-green"
+                          : "bg-accent-amber"
+                      }`}
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Preview Modal */}
       <Modal
