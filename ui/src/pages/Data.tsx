@@ -31,6 +31,7 @@ interface FetchBinanceForm {
   symbol: string;
   interval: string;
   days: number;
+  use_us: boolean;
 }
 
 interface FetchJob {
@@ -81,6 +82,7 @@ export default function Data() {
     symbol: BINANCE_PRESETS[0].symbol,
     interval: "1m",
     days: 7,
+    use_us: false,
   });
   const [fetchJobs, setFetchJobs] = useState<Record<string, FetchJob>>({});
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -430,6 +432,20 @@ export default function Data() {
                 />
               </div>
             </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <label className="flex items-center gap-1.5 text-xs text-text-secondary cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={binanceForm.use_us}
+                onChange={(e) => setBinanceForm((f) => ({ ...f, use_us: e.target.checked }))}
+                className="accent-accent-indigo"
+              />
+              Use Binance US endpoint
+            </label>
+            <span className="text-[10px] text-text-secondary italic">
+              {binanceForm.use_us ? "api.binance.us" : "api.binance.com"}
+            </span>
           </div>
           <button
             onClick={handleFetchBinance}

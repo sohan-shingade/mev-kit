@@ -52,12 +52,13 @@ async def fetch_binance(request: Request, body: dict[str, Any]) -> dict[str, Any
     symbol = body.get("symbol", "SOLUSDT").upper()
     interval = body.get("interval", "1m")
     days = int(body.get("days", 1))
+    use_us = body.get("use_us", False)
     data_dir = request.app.state.data_dir
 
     job_id = f"binance_{symbol}_{datetime.now(UTC).strftime('%H%M%S')}"
     _fetch_jobs[job_id] = {"status": "running", "progress": 0, "total": 0}
 
-    asyncio.create_task(_run_binance_fetch(job_id, symbol, interval, days, data_dir))
+    asyncio.create_task(_run_binance_fetch(job_id, symbol, interval, days, data_dir, use_us))
     return {"status": "started", "job_id": job_id}
 
 
@@ -103,10 +104,11 @@ async def fetch_status() -> dict[str, Any]:
 
 
 async def _run_binance_fetch(
-    job_id: str, symbol: str, interval: str, days: int, data_dir: str
+    job_id: str, symbol: str, interval: str, days: int, data_dir: str, use_us: bool = False
 ) -> None:
     """Background task: fetch Binance klines and save as Parquet."""
-    url = "https://api.binance.com/api/v3/klines"
+    base = "https://api.binance.us" if use_us else "https://api.binance.com"
+    url = f"{base}/api/v3/klines"
     max_limit = 1000
     seconds_map = {"1s": 1, "1m": 60, "5m": 300, "15m": 900, "1h": 3600, "4h": 14400, "1d": 86400}
     secs = seconds_map.get(interval, 60)
