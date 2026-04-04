@@ -32,7 +32,10 @@ class TestPipelineAPI:
             mock_mgr = MagicMock()
             mock_mgr.start = AsyncMock()
             mock_cls.get.return_value = mock_mgr
-            resp = client.post("/api/pipeline/start", json={"mode": "paper", "config": {"min_spread_bps": 20.0}})
+            resp = client.post(
+                "/api/pipeline/start",
+                json={"mode": "paper", "config": {"min_spread_bps": 20.0}},
+            )
             assert resp.status_code == 200
 
     def test_post_stop(self, client: TestClient) -> None:

@@ -7,7 +7,7 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
-from mev_kit.ui.routers import pipeline, config, backtest, analysis, data, docs
+from mev_kit.ui.routers import analysis, backtest, config, data, docs, pipeline
 
 
 def create_app(config_dir: str = "config/", data_dir: str = "./data/") -> FastAPI:

@@ -15,11 +15,10 @@ import structlog
 
 from mev_kit.adapters.ingest.binance_ws import BinanceWSAdapter
 from mev_kit.adapters.ingest.helius_ws import HeliusWSAdapter
-from mev_kit.adapters.ingest.parquet_replay import ParquetReplayAdapter
 from mev_kit.adapters.simulators.base import PassthroughSimulator, Simulator
 from mev_kit.adapters.simulators.rpc_simulator import RPCSimulator
 from mev_kit.adapters.sinks.jito_bundle import JitoBundleSink
-from mev_kit.adapters.sinks.paper_trade import BacktestSink, PaperTradeSink
+from mev_kit.adapters.sinks.paper_trade import PaperTradeSink
 from mev_kit.models import PipelineConfig
 from mev_kit.pipeline.runner import Pipeline
 from mev_kit.strategies.cex_dex_arb import CEXDEXArbDetector
@@ -102,7 +101,7 @@ class PipelineManager:
         if self._task and not self._task.done():
             try:
                 await asyncio.wait_for(self._task, timeout=10.0)
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 self._task.cancel()
         self._pipeline = None
         self._task = None

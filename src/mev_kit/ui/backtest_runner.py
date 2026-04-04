@@ -84,7 +84,9 @@ class BacktestRunner:
             "total_trades": len(results),
             "total_profit_sol": round(sum(profits), 6),
             "avg_profit_sol": round(sum(profits) / len(profits), 6) if profits else 0.0,
-            "win_rate": round(sum(1 for p in profits if p > 0) / len(profits), 4) if profits else 0.0,
+            "win_rate": round(
+                sum(1 for p in profits if p > 0) / len(profits), 4
+            ) if profits else 0.0,
             "best_trade_sol": round(max(profits), 6) if profits else 0.0,
             "worst_trade_sol": round(min(profits), 6) if profits else 0.0,
             "avg_spread_bps": round(

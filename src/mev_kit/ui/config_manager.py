@@ -45,7 +45,7 @@ class ConfigManager:
         return {k: bool(os.environ.get(k)) for k in keys}
 
 
-def _write_toml(f: Any, data: dict[str, Any], prefix: str = "") -> None:
+def _write_toml(f: Any, data: dict[str, Any], prefix: str = "") -> None:  # noqa: ANN401
     """Write a nested dict as TOML format."""
     for key, value in data.items():
         if not isinstance(value, dict):
@@ -58,7 +58,7 @@ def _write_toml(f: Any, data: dict[str, Any], prefix: str = "") -> None:
                 f.write(f"{k} = {_toml_value(v)}\n")
 
 
-def _toml_value(v: Any) -> str:
+def _toml_value(v: Any) -> str:  # noqa: ANN401
     """Convert a Python value to TOML string representation."""
     if isinstance(v, bool):
         return "true" if v else "false"
