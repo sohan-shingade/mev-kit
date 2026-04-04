@@ -24,3 +24,196 @@ body {
 .font-mono {
   font-family: "SF Mono", Monaco, "Cascadia Code", monospace;
 }
+
+/* ── Prose styles for rendered markdown guides ── */
+
+.prose-content {
+  color: var(--color-text-primary);
+  font-size: 0.875rem;
+  line-height: 1.75;
+}
+
+.prose-content h1 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #f1f5f9;
+  margin-top: 2.5rem;
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--color-border);
+  letter-spacing: -0.01em;
+}
+
+.prose-content h2 {
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: #e2e8f0;
+  margin-top: 2rem;
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.375rem;
+  border-bottom: 1px solid var(--color-border);
+  letter-spacing: -0.005em;
+}
+
+.prose-content h3 {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: #cbd5e1;
+  margin-top: 1.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.prose-content h4 {
+  font-size: 0.925rem;
+  font-weight: 600;
+  color: #94a3b8;
+  margin-top: 1.25rem;
+  margin-bottom: 0.375rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  font-size: 0.8rem;
+}
+
+.prose-content p {
+  margin-bottom: 0.875rem;
+  color: #b8c5d6;
+}
+
+.prose-content a {
+  color: var(--color-accent-indigo);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: border-color 0.15s;
+}
+.prose-content a:hover {
+  border-bottom-color: var(--color-accent-indigo);
+}
+
+.prose-content strong {
+  color: #e2e8f0;
+  font-weight: 600;
+}
+
+.prose-content em {
+  color: #94a3b8;
+  font-style: italic;
+}
+
+/* Lists */
+.prose-content ul,
+.prose-content ol {
+  margin-bottom: 0.875rem;
+  padding-left: 1.5rem;
+}
+.prose-content ul {
+  list-style-type: disc;
+}
+.prose-content ol {
+  list-style-type: decimal;
+}
+.prose-content li {
+  margin-bottom: 0.375rem;
+  color: #b8c5d6;
+}
+.prose-content li::marker {
+  color: var(--color-text-secondary);
+}
+
+/* Nested lists */
+.prose-content ul ul,
+.prose-content ol ul {
+  margin-top: 0.25rem;
+  margin-bottom: 0.25rem;
+}
+
+/* Inline code */
+.prose-content code {
+  font-family: "SF Mono", Monaco, "Cascadia Code", ui-monospace, monospace;
+  font-size: 0.8125rem;
+  background-color: #1e293b;
+  color: var(--color-accent-amber);
+  padding: 0.125rem 0.375rem;
+  border-radius: 0.25rem;
+  border: 1px solid #2d3a4f;
+}
+
+/* Code blocks */
+.prose-content pre {
+  background-color: #0f172a;
+  border: 1px solid var(--color-border);
+  border-radius: 0.5rem;
+  padding: 1rem 1.25rem;
+  margin-bottom: 1rem;
+  margin-top: 0.5rem;
+  overflow-x: auto;
+  position: relative;
+}
+
+.prose-content pre code {
+  background: none;
+  border: none;
+  padding: 0;
+  color: #e2e8f0;
+  font-size: 0.8125rem;
+  line-height: 1.7;
+}
+
+/* Blockquotes */
+.prose-content blockquote {
+  border-left: 3px solid var(--color-accent-indigo);
+  background-color: rgba(99, 102, 241, 0.06);
+  padding: 0.75rem 1rem;
+  margin: 0.875rem 0;
+  border-radius: 0 0.375rem 0.375rem 0;
+}
+.prose-content blockquote p {
+  margin-bottom: 0;
+  color: #94a3b8;
+}
+
+/* Tables */
+.prose-content table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 1rem;
+  font-size: 0.8125rem;
+}
+.prose-content thead th {
+  text-align: left;
+  font-weight: 600;
+  color: #94a3b8;
+  text-transform: uppercase;
+  font-size: 0.6875rem;
+  letter-spacing: 0.05em;
+  padding: 0.5rem 0.75rem;
+  border-bottom: 2px solid var(--color-border);
+  background-color: rgba(22, 33, 62, 0.5);
+}
+.prose-content tbody td {
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--color-border);
+  color: #b8c5d6;
+}
+.prose-content tbody tr:hover {
+  background-color: rgba(37, 37, 71, 0.3);
+}
+
+/* Horizontal rules */
+.prose-content hr {
+  border: none;
+  border-top: 1px solid var(--color-border);
+  margin: 1.5rem 0;
+}
+
+/* Images */
+.prose-content img {
+  max-width: 100%;
+  border-radius: 0.5rem;
+  border: 1px solid var(--color-border);
+}
+
+/* First h1 in content — no top margin */
+.prose-content > h1:first-child,
+.prose-content > h2:first-child {
+  margin-top: 0;
+}
