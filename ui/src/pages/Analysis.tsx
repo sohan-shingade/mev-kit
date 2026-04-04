@@ -76,8 +76,12 @@ export default function Analysis() {
 
   const fetchSummary = useCallback(async () => {
     try {
-      const s = await get<AnalysisSummary>(`/api/analysis/${db}`);
-      setSummary(s);
+      const s = await get<AnalysisSummary & { error?: string }>(`/api/analysis/${db}`);
+      if (s.error || !s.total_trades) {
+        setSummary(null);
+      } else {
+        setSummary(s);
+      }
     } catch {
       setSummary(null);
     }
@@ -86,17 +90,16 @@ export default function Analysis() {
   const fetchTrades = useCallback(async () => {
     setLoading(true);
     try {
-      const params = new URLSearchParams({
-        page: String(page),
-        per_page: String(PER_PAGE),
-        sort,
-        ...(direction ? { direction } : {}),
-      });
-      const res = await get<TradesResponse>(
-        `/api/analysis/${db}/trades?${params.toString()}`
+      const res = await get<TradesResponse & { error?: string }>(
+        `/api/analysis/${db}/trades?page=${page}&per_page=${PER_PAGE}&sort=${sort}${direction ? `&direction=${direction}` : ""}`
       );
-      setTrades(res.trades);
-      setTotal(res.total);
+      if (res.error || !res.trades) {
+        setTrades([]);
+        setTotal(0);
+      } else {
+        setTrades(res.trades);
+        setTotal(res.total);
+      }
     } catch {
       setTrades([]);
       setTotal(0);
@@ -192,6 +195,17 @@ export default function Analysis() {
           </button>
         </div>
       </div>
+
+      {!summary && !loading && (
+        <div className="bg-bg-panel border border-border rounded p-8 text-center">
+          <p className="text-sm text-text-secondary mb-2">
+            No results database found for <span className="font-mono text-accent-amber">{db}</span>
+          </p>
+          <p className="text-xs text-text-secondary">
+            Run a backtest or paper trade first to generate results, then come back here to analyze them.
+          </p>
+        </div>
+      )}
 
       {summary && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
