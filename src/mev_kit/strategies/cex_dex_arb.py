@@ -36,6 +36,15 @@ class CEXDEXArbDetector(Detector):
         position_size_sol (float): Size of arb trade. Default: 0.01
     """
 
+    # Declare required data sources for pipeline validation
+    required_sources = {
+        Source.BINANCE_WS,
+        Source.HELIUS_WS,
+        Source.YELLOWSTONE_GRPC,
+        Source.GEYSER,
+        Source.PARQUET_REPLAY,
+    }
+
     # Sources we treat as CEX reference prices
     CEX_SOURCES = {Source.BINANCE_WS}
 
@@ -117,3 +126,13 @@ class CEXDEXArbDetector(Detector):
                 "fee_bps": self.fee_bps,
             },
         )
+
+    # ── Filters (new Detector API) ──
+
+    def filters(self) -> list:
+        """Apply sanity filters to detected opportunities."""
+        return [self._spread_sanity_filter]
+
+    def _spread_sanity_filter(self, opp: Opportunity) -> bool:
+        """Reject obviously wrong spreads (data glitches, stale prices)."""
+        return opp.spread_bps < 1000

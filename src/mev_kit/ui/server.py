@@ -8,7 +8,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from mev_kit.ui.routers import analysis, backtest, config, data, docs, pipeline
+from mev_kit.ui.routers import analysis, backtest, config, data, docs, pipeline, strategies
 
 
 def create_app(config_dir: str = "config/", data_dir: str = "./data/") -> FastAPI:
@@ -22,6 +22,7 @@ def create_app(config_dir: str = "config/", data_dir: str = "./data/") -> FastAP
     app.include_router(analysis.router, prefix="/api/analysis", tags=["analysis"])
     app.include_router(data.router, prefix="/api/data", tags=["data"])
     app.include_router(docs.router, prefix="/api/docs", tags=["docs"])
+    app.include_router(strategies.router, prefix="/api/strategies", tags=["strategies"])
 
     static_dir = Path(__file__).parent / "static"
     if static_dir.exists():

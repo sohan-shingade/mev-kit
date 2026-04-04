@@ -6,6 +6,7 @@ import {
   BarChart3,
   Database,
   BookOpen,
+  Code2,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { get } from "../api/client";
@@ -13,6 +14,7 @@ import type { PipelineStatus } from "../api/types";
 
 const NAV_ITEMS = [
   { to: "/", icon: LayoutDashboard, label: "Dashboard" },
+  { to: "/strategies", icon: Code2, label: "Strategies" },
   { to: "/backtest", icon: Play, label: "Backtest" },
   { to: "/config", icon: Settings, label: "Config" },
   { to: "/analysis", icon: BarChart3, label: "Analysis" },

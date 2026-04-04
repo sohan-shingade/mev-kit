@@ -6,6 +6,7 @@ import Config from "./pages/Config";
 import Analysis from "./pages/Analysis";
 import Data from "./pages/Data";
 import Learn from "./pages/Learn";
+import StrategyEditor from "./pages/StrategyEditor";
 import { ToastContainer } from "./components/common/Toast";
 
 export default function App() {
@@ -19,6 +20,7 @@ export default function App() {
           <Route path="/analysis" element={<Analysis />} />
           <Route path="/data" element={<Data />} />
           <Route path="/learn" element={<Learn />} />
+          <Route path="/strategies" element={<StrategyEditor />} />
         </Route>
       </Routes>
       <ToastContainer />
