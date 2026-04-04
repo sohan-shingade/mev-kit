@@ -5,8 +5,19 @@ import DataTable from "../components/common/DataTable";
 import { toast } from "../components/common/Toast";
 import { Play, Square, RotateCcw } from "lucide-react";
 
+interface StrategyOption {
+  name: string;
+  path: string;
+  type: "user" | "example" | "builtin";
+}
+
+const BUILTIN_STRATEGIES: StrategyOption[] = [
+  { name: "CEX-DEX Arb", path: "cex_dex_arb", type: "builtin" },
+];
+
 interface BacktestConfig {
   data_file: string;
+  strategy: string;
   min_spread_bps: number;
   fee_bps: number;
   position_size_sol: number;
@@ -42,8 +53,10 @@ function SummaryCard({
 
 export default function Backtest() {
   const [files, setFiles] = useState<DataFile[]>([]);
+  const [strategies, setStrategies] = useState<StrategyOption[]>(BUILTIN_STRATEGIES);
   const [config, setConfig] = useState<BacktestConfig>({
     data_file: "",
+    strategy: "cex_dex_arb",
     min_spread_bps: 20,
     fee_bps: 30,
     position_size_sol: 0.1,
@@ -59,6 +72,22 @@ export default function Backtest() {
       .then((f) => {
         setFiles(f);
         if (f.length > 0) setConfig((c) => ({ ...c, data_file: f[0].name }));
+      })
+      .catch(() => {});
+    // Load available strategies
+    get<{ name: string; path: string; type: string }[]>("/api/strategies/files")
+      .then((s) => {
+        const opts: StrategyOption[] = [...BUILTIN_STRATEGIES];
+        for (const f of s) {
+          const key = f.path.replace(".py", "").replace("examples/", "");
+          if (key === "cex_dex_arb") continue; // already in builtins
+          opts.push({
+            name: f.name.replace(".py", "").replace(/_/g, " "),
+            path: key,
+            type: f.type as "user" | "example",
+          });
+        }
+        setStrategies(opts);
       })
       .catch(() => {});
   }, []);
@@ -266,6 +295,24 @@ export default function Backtest() {
               ))}
             </select>
           )}
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <label className="text-[10px] text-text-secondary uppercase tracking-wider">
+            Strategy
+          </label>
+          <select
+            value={config.strategy}
+            onChange={(e) => setConfig((c) => ({ ...c, strategy: e.target.value }))}
+            className="bg-bg-main border border-border rounded px-2 py-1.5 text-xs text-text-primary focus:outline-none focus:border-accent-indigo"
+          >
+            {strategies.map((s) => (
+              <option key={s.path} value={s.path}>
+                {s.name}
+                {s.type === "example" ? " (example)" : s.type === "user" ? " (custom)" : ""}
+              </option>
+            ))}
+          </select>
         </div>
 
         <div className="grid grid-cols-2 gap-3">

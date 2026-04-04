@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import importlib.util
+from pathlib import Path
 from typing import Any
 
 import structlog
@@ -11,9 +13,13 @@ from mev_kit.adapters.simulators.base import PassthroughSimulator
 from mev_kit.adapters.sinks.paper_trade import BacktestSink
 from mev_kit.models import ExecutionMode, PipelineConfig
 from mev_kit.pipeline.runner import Pipeline
+from mev_kit.strategies.base import Detector
 from mev_kit.strategies.cex_dex_arb import CEXDEXArbDetector
 
 logger = structlog.get_logger()
+
+# Registry of built-in strategies
+STRATEGIES_DIR = Path(__file__).parent.parent / "strategies"
 
 
 class BacktestRunner:
@@ -52,12 +58,15 @@ class BacktestRunner:
         )
 
         adapter = ParquetReplayAdapter({"path": data_path, "source_type": "pool"})
-        detector = CEXDEXArbDetector({
-            "min_spread_bps": pipeline_config.min_spread_bps,
-            "fee_bps": config.get("fee_bps", 30.0),
-            "pair": "SOL/USDC",
-            "position_size_sol": pipeline_config.position_size_sol,
-        })
+        detector = _load_detector(
+            config.get("strategy", "cex_dex_arb"),
+            {
+                "min_spread_bps": pipeline_config.min_spread_bps,
+                "fee_bps": config.get("fee_bps", 30.0),
+                "pair": "SOL/USDC",
+                "position_size_sol": pipeline_config.position_size_sol,
+            },
+        )
         simulator = PassthroughSimulator({})
         self._sink = BacktestSink({"output_path": None})
 
@@ -117,3 +126,59 @@ class BacktestRunner:
             ) if results else 0.0,
             "trades": results,
         }
+
+
+def _load_detector(strategy: str, config: dict) -> Detector:
+    """Load a detector by name or file path.
+
+    Supports:
+        - "cex_dex_arb" — built-in CEX-DEX arb detector
+        - "examples/spread_tracker" — example detector
+        - "my_detector.py" — user strategy file in strategies dir
+    """
+    # Built-in strategies by short name
+    builtins = {
+        "cex_dex_arb": ("mev_kit.strategies.cex_dex_arb", "CEXDEXArbDetector"),
+        "spread_tracker": ("mev_kit.strategies.examples.spread_tracker", "SpreadTracker"),
+        "multi_pool_arb": ("mev_kit.strategies.examples.multi_pool_arb", "MultiPoolArbDetector"),
+        "liquidation_detector": ("mev_kit.strategies.examples.liquidation_detector", "LiquidationDetector"),
+        "statistical_arb": ("mev_kit.strategies.examples.statistical_arb", "StatisticalArbDetector"),
+        "momentum_detector": ("mev_kit.strategies.examples.momentum_detector", "MomentumDetector"),
+    }
+
+    # Clean up the name
+    name = strategy.replace(".py", "").replace("examples/", "")
+
+    if name in builtins:
+        module_path, class_name = builtins[name]
+        import importlib
+
+        mod = importlib.import_module(module_path)
+        cls = getattr(mod, class_name)
+        return cls(config)
+
+    # Try loading from a .py file in the strategies directory
+    file_path = STRATEGIES_DIR / f"{name}.py"
+    if not file_path.exists():
+        file_path = STRATEGIES_DIR / strategy  # try with .py extension
+    if not file_path.exists():
+        logger.warning("backtest_runner.strategy_not_found", strategy=strategy)
+        return CEXDEXArbDetector(config)  # fallback
+
+    # Dynamic import from file
+    spec = importlib.util.spec_from_file_location(name, str(file_path))
+    if spec and spec.loader:
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        # Find the first Detector subclass in the module
+        for attr_name in dir(mod):
+            attr = getattr(mod, attr_name)
+            if (
+                isinstance(attr, type)
+                and issubclass(attr, Detector)
+                and attr is not Detector
+            ):
+                return attr(config)
+
+    logger.warning("backtest_runner.no_detector_in_file", file=str(file_path))
+    return CEXDEXArbDetector(config)
