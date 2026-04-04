@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from mev_kit.ui.routers import analysis, backtest, config, data, docs, pipeline
@@ -24,6 +25,19 @@ def create_app(config_dir: str = "config/", data_dir: str = "./data/") -> FastAP
 
     static_dir = Path(__file__).parent / "static"
     if static_dir.exists():
-        app.mount("/", StaticFiles(directory=str(static_dir), html=True), name="static")
+        # Serve static assets (JS, CSS, images) at their exact paths
+        app.mount("/assets", StaticFiles(directory=str(static_dir / "assets")), name="assets")
+
+        index_html = static_dir / "index.html"
+
+        # SPA catch-all: serve index.html for any non-API route
+        @app.get("/{path:path}")
+        async def spa_fallback(request: Request, path: str) -> FileResponse:
+            # If the file exists in static dir, serve it (favicon, etc.)
+            file_path = static_dir / path
+            if file_path.is_file():
+                return FileResponse(file_path)
+            # Otherwise serve index.html for client-side routing
+            return FileResponse(index_html)
 
     return app
