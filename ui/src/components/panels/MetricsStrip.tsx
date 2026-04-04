@@ -7,7 +7,7 @@ interface Props {
 }
 
 export default function MetricsStrip({ metrics, state, mode }: Props) {
-  const m = metrics;
+  const m = metrics && "total_profit_sol" in metrics ? metrics : null;
   const items = [
     {
       label: "P&L",
