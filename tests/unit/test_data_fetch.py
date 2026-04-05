@@ -10,6 +10,7 @@ Covers:
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import os
 import struct
@@ -756,6 +757,115 @@ class TestDataAPIEndpoints:
         assert len(preview["rows"]) == 5
         assert preview["total_rows"] == 20
         assert "col1" in preview["columns"]
+
+
+# ---------------------------------------------------------------------------
+# 4b. Helius fetch timing sanity tests
+# ---------------------------------------------------------------------------
+
+
+class TestHeliusFetchTiming:
+    """Verify that Helius fetch durations are realistic and total_fetches is correct."""
+
+    def test_5s_interval_5m_duration_gives_60_fetches(self) -> None:
+        """5m duration at 5s interval = 300s / 5s = 60 fetches."""
+        interval = _parse_duration_to_seconds("5s")
+        duration = _parse_duration_to_minutes("5m")
+        total = (duration * 60) // interval
+        assert total == 60
+
+    def test_10s_interval_1m_duration_gives_6_fetches(self) -> None:
+        interval = _parse_duration_to_seconds("10s")
+        duration = _parse_duration_to_minutes("1m")
+        total = (duration * 60) // interval
+        assert total == 6
+
+    def test_1m_interval_15m_duration_gives_15_fetches(self) -> None:
+        interval = _parse_duration_to_seconds("1m")
+        duration = _parse_duration_to_minutes("15m")
+        total = (duration * 60) // interval
+        assert total == 15
+
+    def test_1m_interval_1h_duration_gives_60_fetches(self) -> None:
+        interval = _parse_duration_to_seconds("1m")
+        duration = _parse_duration_to_minutes("1h")
+        total = (duration * 60) // interval
+        assert total == 60
+
+    def test_max_ui_duration_is_1h_at_5s_gives_720_fetches(self) -> None:
+        """The maximum realistic UI config: 1h at 5s = 720 fetches (1 hour)."""
+        interval = _parse_duration_to_seconds("5s")
+        duration = _parse_duration_to_minutes("1h")
+        total = (duration * 60) // interval
+        assert total == 720
+        # Real-time: 720 * 5s = 3600s = exactly 1 hour — acceptable
+
+    def test_old_7d_duration_would_be_unreasonable(self) -> None:
+        """Verify that 7d at 1m would produce 10080 fetches — too many for live polling."""
+        interval = _parse_duration_to_seconds("1m")
+        duration = _parse_duration_to_minutes("7d")
+        total = (duration * 60) // interval
+        assert total == 10080  # This is 7 days of real-time — unreasonable!
+
+    @pytest.mark.asyncio
+    async def test_helius_fetch_respects_interval_sleep(self, tmp_path: Path) -> None:
+        """Verify that _run_helius_fetch sleeps for the interval between fetches."""
+        job_id = "test_helius_sleep"
+        _fetch_jobs[job_id] = {"status": "running", "progress": 0}
+
+        mock_response = MagicMock()
+        mock_response.json.return_value = _make_helius_response()
+        mock_response.raise_for_status = MagicMock()
+
+        mock_client = AsyncMock()
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+        mock_client.post = AsyncMock(return_value=mock_response)
+
+        sleep_calls: list[float] = []
+        original_sleep = asyncio.sleep
+
+        async def mock_sleep(seconds: float) -> None:
+            sleep_calls.append(seconds)
+            # Don't actually sleep in tests
+
+        with (
+            patch("mev_kit.ui.routers.data.httpx.AsyncClient", return_value=mock_client),
+            patch("mev_kit.ui.routers.data.asyncio.sleep", side_effect=mock_sleep),
+        ):
+            # 3 fetches with 10s interval, 30s duration
+            # total = (0.5min * 60) // 10 = 3
+            await _run_helius_fetch(job_id, "FakeAddr", 10, 1, str(tmp_path), "key")
+
+        # Should have slept between fetches (n-1 sleeps for n fetches)
+        assert len(sleep_calls) >= 1
+        assert all(s == 10 for s in sleep_calls), f"Expected 10s sleeps, got {sleep_calls}"
+
+
+def _make_helius_response(
+    base_lamports: int = 1_000_000_000_000,
+    quote_micro: int = 148_000_000_000,
+    slot: int = 280_000_000,
+) -> dict:
+    """Build a mock Helius RPC response with pool reserves."""
+    raw = bytearray(200)
+    struct.pack_into("<Q", raw, 64, base_lamports)
+    struct.pack_into("<Q", raw, 72, quote_micro)
+    encoded = base64.b64encode(bytes(raw)).decode()
+    return {
+        "jsonrpc": "2.0",
+        "result": {
+            "context": {"slot": slot},
+            "value": {
+                "data": [encoded, "base64"],
+                "lamports": 1000000,
+                "owner": "675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8",
+                "executable": False,
+                "rentEpoch": 0,
+            },
+        },
+        "id": 1,
+    }
 
 
 # ---------------------------------------------------------------------------

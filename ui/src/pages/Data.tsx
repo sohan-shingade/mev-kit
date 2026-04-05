@@ -75,8 +75,8 @@ export default function Data() {
   const [fetchingBinance, setFetchingBinance] = useState(false);
   const [histForm, setHistForm] = useState<FetchHistoricalForm>({
     pool_address: POOL_PRESETS[0].address,
-    interval: "1m",
-    duration: "7d",
+    interval: "5s",
+    duration: "5m",
   });
   const [binanceForm, setBinanceForm] = useState<FetchBinanceForm>({
     symbol: BINANCE_PRESETS[0].symbol,
@@ -342,14 +342,20 @@ export default function Data() {
             </div>
             <div className="grid grid-cols-2 gap-2">
               <div className="flex flex-col gap-1">
-                <label className="text-[10px] text-text-secondary">Interval</label>
+                <label className="text-[10px] text-text-secondary">Poll Interval</label>
                 <select
                   value={histForm.interval}
                   onChange={(e) => setHistForm((f) => ({ ...f, interval: e.target.value }))}
                   className={inputCls}
                 >
-                  {["1m", "5m", "15m", "1h", "4h", "1d"].map((i) => (
-                    <option key={i} value={i}>{i}</option>
+                  {[
+                    { v: "5s", l: "5 seconds" },
+                    { v: "10s", l: "10 seconds" },
+                    { v: "30s", l: "30 seconds" },
+                    { v: "1m", l: "1 minute" },
+                    { v: "5m", l: "5 minutes" },
+                  ].map((i) => (
+                    <option key={i.v} value={i.v}>{i.l}</option>
                   ))}
                 </select>
               </div>
@@ -360,11 +366,20 @@ export default function Data() {
                   onChange={(e) => setHistForm((f) => ({ ...f, duration: e.target.value }))}
                   className={inputCls}
                 >
-                  {["1d", "3d", "7d", "14d", "30d"].map((d) => (
-                    <option key={d} value={d}>{d}</option>
+                  {[
+                    { v: "1m", l: "1 minute" },
+                    { v: "5m", l: "5 minutes" },
+                    { v: "15m", l: "15 minutes" },
+                    { v: "30m", l: "30 minutes" },
+                    { v: "1h", l: "1 hour" },
+                  ].map((d) => (
+                    <option key={d.v} value={d.v}>{d.l}</option>
                   ))}
                 </select>
               </div>
+            </div>
+            <div className="text-[10px] text-accent-amber border border-accent-amber/30 rounded px-2 py-1.5 bg-accent-amber/5">
+              Live polling — fetches current on-chain state at each interval. Runs in real-time (5 min duration = 5 min to complete). For bulk historical data, use Binance fetch instead.
             </div>
           </div>
           <button
