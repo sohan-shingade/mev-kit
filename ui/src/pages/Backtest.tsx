@@ -437,8 +437,10 @@ export default function Backtest() {
           )}
         </div>
 
-        {/* CEX data file — shown for dual-source strategies */}
-        {DUAL_SOURCE_STRATEGIES.has(config.strategy) && (
+        {/* CEX data file — shown for dual-source strategies, hidden for merged datasets */}
+        {DUAL_SOURCE_STRATEGIES.has(config.strategy) &&
+         !config.data_file.includes("merged") &&
+         !config.data_file.startsWith("backtest_") ? (
           <div className="flex flex-col gap-1.5">
             <label className="text-[10px] text-text-secondary uppercase tracking-wider">
               CEX Data File <span className="text-accent-amber">(required for this strategy)</span>
@@ -461,7 +463,11 @@ export default function Backtest() {
               </p>
             )}
           </div>
-        )}
+        ) : DUAL_SOURCE_STRATEGIES.has(config.strategy) && (config.data_file.includes("merged") || config.data_file.startsWith("backtest_")) ? (
+          <p className="text-[10px] text-accent-green">
+            Merged dataset detected — contains both DEX and CEX prices, time-aligned with lag. Ready to backtest.
+          </p>
+        ) : null}
 
         <div className="flex flex-col gap-1.5">
           <label className="text-[10px] text-text-secondary uppercase tracking-wider">
