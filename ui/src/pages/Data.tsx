@@ -61,22 +61,44 @@ const POOL_PRESETS = [
   { label: "BONK/SOL (Raydium)", address: "BqnpCdDLPV2pFdAaLnVidmn3G93RP2p5oRdGEY2sJGez" },
 ];
 
+// CEX pairs — match these with Birdeye pairs for CEX-DEX arb backtesting
 const BINANCE_PRESETS = [
   { label: "SOL/USDT", symbol: "SOLUSDT" },
   { label: "SOL/USDC", symbol: "SOLUSDC" },
   { label: "ETH/USDT", symbol: "ETHUSDT" },
   { label: "BTC/USDT", symbol: "BTCUSDT" },
+  { label: "WIF/USDT", symbol: "WIFUSDT" },
+  { label: "JUP/USDT", symbol: "JUPUSDT" },
   { label: "BONK/USDT", symbol: "BONKUSDT" },
   { label: "JTO/USDT", symbol: "JTOUSDT" },
   { label: "RAY/USDT", symbol: "RAYUSDT" },
+  { label: "PYTH/USDT", symbol: "PYTHUSDT" },
+  { label: "RNDR/USDT", symbol: "RNDRUSDT" },
+  { label: "HNT/USDT", symbol: "HNTUSDT" },
 ];
 
+// DEX pairs — token mint addresses, Birdeye aggregates across all DEXes
+// Common mints:
+//   SOL:  So11111111111111111111111111111111111111112
+//   USDC: EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v
+//   USDT: Es9vMFrzaCERmKfreVDyFe3GHMC3dYTzJ3tEX2s8VdDg
 const BIRDEYE_TOKEN_PRESETS = [
+  // Stablecoin pairs (highest volume, best for CEX-DEX arb)
   { label: "SOL/USDC", base: "So11111111111111111111111111111111111111112", quote: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v" },
   { label: "SOL/USDT", base: "So11111111111111111111111111111111111111112", quote: "Es9vMFrzaCERmKfreVDyFe3GHMC3dYTzJ3tEX2s8VdDg" },
-  { label: "RAY/USDC", base: "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R", quote: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v" },
+  // Memecoins (high volatility, frequent arb opportunities)
+  { label: "WIF/USDC", base: "EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm", quote: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v" },
   { label: "BONK/SOL", base: "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263", quote: "So11111111111111111111111111111111111111112" },
+  { label: "BONK/USDC", base: "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263", quote: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v" },
+  // DeFi tokens
+  { label: "JUP/USDC", base: "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN", quote: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v" },
+  { label: "RAY/USDC", base: "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R", quote: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v" },
   { label: "JTO/USDC", base: "jtojtomepa8beP8AuQc6eXt5FriJwfFwwn2LwDeFkt", quote: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v" },
+  { label: "PYTH/USDC", base: "HZ1JovNiVvGrGNiiYvEozEVgZ58xaU3RKwX8eACQBCt3", quote: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v" },
+  // LST pairs (liquid staking — different arb dynamics)
+  { label: "mSOL/SOL", base: "mSoLzYCxHdYgdzU16g5QSh3i5K3z3KZK7ytfqcJm7So", quote: "So11111111111111111111111111111111111111112" },
+  { label: "jitoSOL/SOL", base: "J1toso1uCk3RLmjorhTtrVwY9HJ7X8V9yYac6Y7kGCPn", quote: "So11111111111111111111111111111111111111112" },
+  { label: "bSOL/SOL", base: "bSo13r4TkiE4KumL71LsHTPpL2euBYLFx6h9HP3piy1", quote: "So11111111111111111111111111111111111111112" },
 ];
 
 export default function Data() {
