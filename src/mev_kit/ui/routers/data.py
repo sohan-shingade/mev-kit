@@ -202,6 +202,8 @@ async def fetch_market(request: Request, body: dict[str, Any]) -> dict[str, Any]
     days = int(body.get("days", 7))
     auto_merge = body.get("auto_merge", True)
     lag = body.get("lag", True)
+    start_date = body.get("start_date")  # Optional: "2026-04-01"
+    end_date = body.get("end_date")      # Optional: "2026-04-05"
     data_dir = request.app.state.data_dir.rstrip("/")
 
     job_id = f"market_{datetime.now(UTC).strftime('%H%M%S')}"
@@ -213,7 +215,10 @@ async def fetch_market(request: Request, body: dict[str, Any]) -> dict[str, Any]
     }
 
     asyncio.create_task(
-        _run_market_fetch(job_id, market, venues, interval, days, auto_merge, lag, data_dir)
+        _run_market_fetch(
+            job_id, market, venues, interval, days, auto_merge, lag, data_dir,
+            start_date=start_date, end_date=end_date,
+        )
     )
     return {"status": "started", "job_id": job_id}
 
@@ -788,6 +793,8 @@ async def _run_market_fetch(
     auto_merge: bool,
     lag: bool,
     data_dir: str,
+    start_date: str | None = None,
+    end_date: str | None = None,
 ) -> None:
     """Orchestrate multi-venue fetch + merge."""
     import os

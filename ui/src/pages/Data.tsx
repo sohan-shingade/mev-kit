@@ -197,6 +197,12 @@ export default function Data() {
   const [selectedVenues, setSelectedVenues] = useState<Set<VenueName>>(new Set(["binance", "birdeye"]));
   const [resolution, setResolution] = useState("1m");
   const [duration, setDuration] = useState(7);
+  const [useCustomDates, setUseCustomDates] = useState(false);
+  const [startDate, setStartDate] = useState(() => {
+    const d = new Date(); d.setDate(d.getDate() - 7);
+    return d.toISOString().slice(0, 10);
+  });
+  const [endDate, setEndDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [autoMerge, setAutoMerge] = useState(true);
   const [applyLag, setApplyLag] = useState(true);
   const [useBinanceUs, setUseBinanceUs] = useState(false);
@@ -336,15 +342,21 @@ export default function Data() {
           marketPayload.birdeye_venue_label = pool.venue;
         }
       }
+      // Calculate days from date range if using custom dates
+      const fetchDays = useCustomDates
+        ? Math.max(1, Math.ceil((new Date(endDate).getTime() - new Date(startDate).getTime()) / 86400000))
+        : duration;
+
       const result = await post<{ status: string; job_id?: string; error?: string }>(
         "/api/data/fetch/market",
         {
           market: marketPayload,
           venues: Array.from(selectedVenues),
           interval: resolution,
-          days: duration,
+          days: fetchDays,
           auto_merge: autoMerge,
           lag: applyLag,
+          ...(useCustomDates ? { start_date: startDate, end_date: endDate } : {}),
         }
       );
       if (result.status === "error") {
@@ -676,23 +688,50 @@ export default function Data() {
             </select>
           </div>
           <div className="flex flex-col gap-1">
-            <label className="text-[10px] text-text-secondary">
-              Duration
-              {isHeliusSelected && (
-                <span className="text-accent-amber ml-1">(Helius capped at 1 hr)</span>
-              )}
-            </label>
-            <select
-              value={duration}
-              onChange={(e) => setDuration(Number(e.target.value))}
-              className={inputCls}
-            >
-              {DURATION_OPTIONS.map((d) => (
-                <option key={d.value} value={d.value}>
-                  {d.label}
-                </option>
-              ))}
-            </select>
+            <div className="flex items-center justify-between">
+              <label className="text-[10px] text-text-secondary">
+                {useCustomDates ? "Date Range" : "Duration"}
+                {isHeliusSelected && !useCustomDates && (
+                  <span className="text-accent-amber ml-1">(Helius capped at 1 hr)</span>
+                )}
+              </label>
+              <button
+                type="button"
+                onClick={() => setUseCustomDates(!useCustomDates)}
+                className="text-[9px] text-accent-indigo hover:underline"
+              >
+                {useCustomDates ? "Use duration" : "Pick dates"}
+              </button>
+            </div>
+            {useCustomDates ? (
+              <div className="flex gap-2">
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className={inputCls + " flex-1"}
+                />
+                <input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  max={new Date().toISOString().slice(0, 10)}
+                  className={inputCls + " flex-1"}
+                />
+              </div>
+            ) : (
+              <select
+                value={duration}
+                onChange={(e) => setDuration(Number(e.target.value))}
+                className={inputCls}
+              >
+                {DURATION_OPTIONS.map((d) => (
+                  <option key={d.value} value={d.value}>
+                    {d.label}
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
         </div>
 
