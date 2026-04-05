@@ -262,16 +262,25 @@ async def _run_birdeye_fetch(
     pair_label: str,
     data_dir: str,
     api_key: str,
+    pool_address: str | None = None,
+    venue_label: str | None = None,
 ) -> None:
-    """Background task: fetch Birdeye DEX OHLCV data and save as Parquet."""
-    url = "https://public-api.birdeye.so/defi/ohlcv/base_quote"
+    """Background task: fetch Birdeye DEX OHLCV data and save as Parquet.
+
+    If pool_address is provided, uses /defi/ohlcv/pair for venue-specific data.
+    Otherwise uses /defi/ohlcv/base_quote for aggregated data across all DEXes.
+    """
+    if pool_address:
+        url = "https://public-api.birdeye.so/defi/ohlcv/pair"
+    else:
+        url = "https://public-api.birdeye.so/defi/ohlcv/base_quote"
     headers = {
         "X-API-KEY": api_key,
         "x-chain": "solana",
     }
     max_records_per_page = 1000
 
-    # Birdeye interval string → seconds for pagination
+    # Birdeye interval string -> seconds for pagination
     interval_seconds_map = {
         "1m": 60,
         "5m": 300,
@@ -289,19 +298,31 @@ async def _run_birdeye_fetch(
     total_expected = (days * 86400) // secs
     _fetch_jobs[job_id]["total"] = total_expected
 
+    # Determine dex label for the saved data
+    dex_label = venue_label if venue_label else "raydium"
+    pool_id = pool_address if pool_address else "birdeye_aggregated"
+
     all_rows: list[dict] = []
 
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
             current_from = time_from
             while current_from < time_to:
-                params: dict[str, Any] = {
-                    "base_address": base_address,
-                    "quote_address": quote_address,
-                    "type": interval,
-                    "time_from": current_from,
-                    "time_to": time_to,
-                }
+                if pool_address:
+                    params: dict[str, Any] = {
+                        "address": pool_address,
+                        "type": interval,
+                        "time_from": current_from,
+                        "time_to": time_to,
+                    }
+                else:
+                    params = {
+                        "base_address": base_address,
+                        "quote_address": quote_address,
+                        "type": interval,
+                        "time_from": current_from,
+                        "time_to": time_to,
+                    }
 
                 resp = await client.get(url, headers=headers, params=params)
                 resp.raise_for_status()
@@ -315,8 +336,8 @@ async def _run_birdeye_fetch(
                     ts_val = item.get("unixTime") or item.get("time") or 0
                     close_price = float(item.get("c", item.get("close", 0)))
                     all_rows.append({
-                        "pool_address": "birdeye_aggregated",
-                        "dex": "raydium",
+                        "pool_address": pool_id,
+                        "dex": dex_label,
                         "base_mint": base_address,
                         "quote_mint": quote_address,
                         "base_reserve": 0.0,
@@ -345,7 +366,8 @@ async def _run_birdeye_fetch(
             Path(data_dir).mkdir(parents=True, exist_ok=True)
             ts_str = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
             label_part = pair_label.replace("/", "_").lower() if pair_label else "pair"
-            filename = f"birdeye_{label_part}_{interval}_{ts_str}.parquet"
+            venue_suffix = f"_{venue_label}" if venue_label else ""
+            filename = f"birdeye_{label_part}{venue_suffix}_{interval}_{ts_str}.parquet"
             df.write_parquet(str(Path(data_dir) / filename))
             _fetch_jobs[job_id]["status"] = "completed"
             _fetch_jobs[job_id]["file"] = filename
@@ -839,6 +861,10 @@ async def _run_market_fetch(
                 elif interval in ("1d",):
                     birdeye_interval = interval[:-1] + "D"
 
+                # Support venue-specific pool fetch via Birdeye /defi/ohlcv/pair
+                birdeye_pool_address = market.get("birdeye_pool_address")
+                birdeye_venue_label = market.get("birdeye_venue_label")
+
                 await _run_birdeye_fetch(
                     birdeye_job,
                     market["birdeye_base"],
@@ -848,6 +874,8 @@ async def _run_market_fetch(
                     market.get("label", "pair"),
                     data_dir,
                     api_key,
+                    pool_address=birdeye_pool_address,
+                    venue_label=birdeye_venue_label,
                 )
 
                 if _fetch_jobs[birdeye_job]["status"] == "completed":

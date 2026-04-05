@@ -24,6 +24,8 @@ interface BacktestConfig {
   position_size_sol: number;
   simulate_before_execute: boolean;
   use_sources: string[];
+  venue: string;
+  simulate_fills: boolean;
 }
 
 interface FileSource {
@@ -145,6 +147,8 @@ export default function Backtest() {
     position_size_sol: 0.1,
     simulate_before_execute: true,
     use_sources: [],  // empty = use all available
+    venue: "aggregated",
+    simulate_fills: true,
   });
   const [status, setStatus] = useState<BacktestStatus>({ state: "idle" });
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -409,6 +413,32 @@ export default function Backtest() {
             color="text-accent-red"
           />
         </div>
+
+        {r.fill_stats && (
+          <div className="bg-bg-panel/30 border border-border/40 rounded p-3">
+            <div className="text-[10px] text-text-secondary uppercase tracking-wider mb-2">
+              Fill Simulation — {r.fill_stats.venue_label}
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+              <div>
+                <span className="text-text-secondary">Opportunities</span>
+                <span className="block font-mono text-text-primary">{r.fill_stats.total_simulated.toLocaleString()}</span>
+              </div>
+              <div>
+                <span className="text-text-secondary">Landed</span>
+                <span className="block font-mono text-accent-green">{r.fill_stats.total_landed.toLocaleString()}</span>
+              </div>
+              <div>
+                <span className="text-text-secondary">Landing Rate</span>
+                <span className="block font-mono text-accent-amber">{(r.fill_stats.landing_rate_actual * 100).toFixed(1)}%</span>
+              </div>
+              <div>
+                <span className="text-text-secondary">Venue Fee</span>
+                <span className="block font-mono text-text-primary">{r.fill_stats.fee_bps} bps</span>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Backtest disclaimer */}
         {r.total_trades > 0 && (
@@ -693,6 +723,33 @@ export default function Backtest() {
             </label>
           </div>
         </div>
+
+        <div className="flex flex-col gap-1.5">
+          <label className="text-[10px] text-text-secondary uppercase tracking-wider">
+            Execution Venue
+          </label>
+          <select
+            value={config.venue}
+            onChange={(e) => setConfig((c) => ({ ...c, venue: e.target.value }))}
+            className="bg-bg-main border border-border rounded px-2 py-1.5 text-xs text-text-primary focus:outline-none focus:border-accent-indigo"
+          >
+            <option value="raydium">Raydium AMM (25 bps fee, ~40% landing)</option>
+            <option value="orca">Orca Whirlpool (20 bps fee, ~40% landing)</option>
+            <option value="jupiter">Jupiter Aggregated (15 bps fee, ~45% landing)</option>
+            <option value="aggregated">DEX Aggregated (20 bps fee, ~40% landing)</option>
+          </select>
+          <span className="text-[9px] text-text-secondary">Simulates venue-specific slippage, fees, and Jito landing rate</span>
+        </div>
+
+        <label className="flex items-center gap-2 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={config.simulate_fills}
+            onChange={(e) => setConfig((c) => ({ ...c, simulate_fills: e.target.checked }))}
+            className="accent-accent-indigo"
+          />
+          <span className="text-xs text-text-secondary">Realistic fill simulation (slippage + landing rate)</span>
+        </label>
 
         <button
           onClick={handleStart}

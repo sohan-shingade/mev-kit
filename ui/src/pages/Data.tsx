@@ -23,6 +23,12 @@ function formatDate(ts: number) {
 
 // --- Market presets with venue-specific identifiers ---
 
+interface PoolPreset {
+  venue: string;
+  address: string;
+  label: string;
+}
+
 interface MarketPreset {
   label: string;
   binance_symbol: string;
@@ -31,6 +37,7 @@ interface MarketPreset {
   birdeye_base: string;
   birdeye_quote: string;
   helius_pool: string;
+  pools: PoolPreset[];
 }
 
 const MARKET_PRESETS: MarketPreset[] = [
@@ -42,6 +49,10 @@ const MARKET_PRESETS: MarketPreset[] = [
     birdeye_base: "So11111111111111111111111111111111111111112",
     birdeye_quote: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
     helius_pool: "58oQChx4yWmvKdwLLZzBi4ChoCc2fqCUWBkwMihLYQo2",
+    pools: [
+      { venue: "raydium", address: "58oQChx4yWmvKdwLLZzBi4ChoCc2fqCUWBkwMihLYQo2", label: "Raydium AMM v4" },
+      { venue: "orca", address: "HJPjoWUrhoZzkNfRpHuieeFk9BcLEjS1rKNhqTUFi2Ba", label: "Orca Whirlpool" },
+    ],
   },
   {
     label: "SOL/USDT",
@@ -51,6 +62,7 @@ const MARKET_PRESETS: MarketPreset[] = [
     birdeye_base: "So11111111111111111111111111111111111111112",
     birdeye_quote: "Es9vMFrzaCERmKfreVDyFe3GHMC3dYTzJ3tEX2s8VdDg",
     helius_pool: "7XawhbbxtsRcQA8KTkHT9f9nc6d69UwqCDh6U5EEbEmX",
+    pools: [],
   },
   {
     label: "WIF/USDC",
@@ -60,6 +72,7 @@ const MARKET_PRESETS: MarketPreset[] = [
     birdeye_base: "EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm",
     birdeye_quote: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
     helius_pool: "",
+    pools: [],
   },
   {
     label: "JUP/USDC",
@@ -69,6 +82,7 @@ const MARKET_PRESETS: MarketPreset[] = [
     birdeye_base: "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",
     birdeye_quote: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
     helius_pool: "",
+    pools: [],
   },
   {
     label: "BONK/USDC",
@@ -78,6 +92,7 @@ const MARKET_PRESETS: MarketPreset[] = [
     birdeye_base: "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263",
     birdeye_quote: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
     helius_pool: "",
+    pools: [],
   },
   {
     label: "RAY/USDC",
@@ -87,6 +102,9 @@ const MARKET_PRESETS: MarketPreset[] = [
     birdeye_base: "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R",
     birdeye_quote: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
     helius_pool: "6UmmUiYoBjSrhakAobJw8BvkmJtDVxaeBtbt7rxWo1mg",
+    pools: [
+      { venue: "raydium", address: "6UmmUiYoBjSrhakAobJw8BvkmJtDVxaeBtbt7rxWo1mg", label: "Raydium AMM v4" },
+    ],
   },
   {
     label: "JTO/USDC",
@@ -96,6 +114,7 @@ const MARKET_PRESETS: MarketPreset[] = [
     birdeye_base: "jtojtomepa8beP8AuQc6eXt5FriJwfFwwn2LwDeFkt",
     birdeye_quote: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
     helius_pool: "",
+    pools: [],
   },
   {
     label: "PYTH/USDC",
@@ -105,6 +124,7 @@ const MARKET_PRESETS: MarketPreset[] = [
     birdeye_base: "HZ1JovNiVvGrGNiiYvEozEVgZ58xaU3RKwX8eACQBCt3",
     birdeye_quote: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
     helius_pool: "",
+    pools: [],
   },
   {
     label: "mSOL/SOL",
@@ -114,6 +134,7 @@ const MARKET_PRESETS: MarketPreset[] = [
     birdeye_base: "mSoLzYCxHdYgdzU16g5QSh3i5K3z3KZK7ytfqcJm7So",
     birdeye_quote: "So11111111111111111111111111111111111111112",
     helius_pool: "EGZ7tiLeH62TPV1gL8WwbXGzEPa9zmcpVnnkPKKnrE2U",
+    pools: [],
   },
 ];
 
@@ -176,6 +197,7 @@ export default function Data() {
   const [autoMerge, setAutoMerge] = useState(true);
   const [applyLag, setApplyLag] = useState(true);
   const [useBinanceUs, setUseBinanceUs] = useState(false);
+  const [birdeyePool, setBirdeyePool] = useState("aggregated");
   const [fetching, setFetching] = useState(false);
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
 
@@ -229,8 +251,9 @@ export default function Data() {
     fetchFiles();
   }, [fetchFiles]);
 
-  // When market changes, update venue availability
+  // When market changes, update venue availability and reset pool selection
   useEffect(() => {
+    setBirdeyePool("aggregated");
     setSelectedVenues((prev) => {
       const next = new Set(prev);
       if (!selectedMarket.binance_symbol) next.delete("binance");
@@ -298,10 +321,19 @@ export default function Data() {
     setFetching(true);
     setActiveJobId(null);
     try {
+      const marketPayload: Record<string, unknown> = { ...selectedMarket, use_binance_us: useBinanceUs };
+      // If a specific Birdeye pool is selected, pass pool_address
+      if (birdeyePool !== "aggregated") {
+        const pool = selectedMarket.pools.find((p) => p.address === birdeyePool);
+        if (pool) {
+          marketPayload.birdeye_pool_address = pool.address;
+          marketPayload.birdeye_venue_label = pool.venue;
+        }
+      }
       const result = await post<{ status: string; job_id?: string; error?: string }>(
         "/api/data/fetch/market",
         {
-          market: { ...selectedMarket, use_binance_us: useBinanceUs },
+          market: marketPayload,
           venues: Array.from(selectedVenues),
           interval: resolution,
           days: duration,
@@ -584,6 +616,29 @@ export default function Data() {
             </label>
           </div>
         </div>
+
+        {/* Birdeye venue-specific pool selector */}
+        {selectedVenues.has("birdeye") && (
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[10px] text-text-secondary">Birdeye DEX Pool</label>
+            <select
+              value={birdeyePool}
+              onChange={(e) => setBirdeyePool(e.target.value)}
+              className="bg-bg-main border border-border rounded px-2 py-1.5 text-xs text-text-primary focus:outline-none focus:border-accent-indigo font-mono"
+            >
+              <option value="aggregated">All DEXes (aggregated)</option>
+              {selectedMarket.pools.map((p) => (
+                <option key={p.address} value={p.address}>{p.label}</option>
+              ))}
+            </select>
+            <div className="text-[9px] text-text-secondary leading-relaxed border border-border/30 rounded px-2 py-1.5 bg-bg-main/30">
+              Data retrieved via Birdeye API — prices reflect historical on-chain DEX execution prices.
+              {birdeyePool === "aggregated"
+                ? " [Aggregated]: weighted average across all pools (Raydium, Orca, Meteora, etc.)"
+                : ` [${selectedMarket.pools.find((p) => p.address === birdeyePool)?.label ?? "Pool"}]: prices from this specific pool only`}
+            </div>
+          </div>
+        )}
 
         {/* Resolution + Duration */}
         <div className="grid grid-cols-2 gap-3">

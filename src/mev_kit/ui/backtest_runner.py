@@ -15,6 +15,7 @@ import structlog
 from mev_kit.adapters.ingest.merged_replay import MergedReplayAdapter
 from mev_kit.adapters.ingest.parquet_replay import ParquetReplayAdapter
 from mev_kit.adapters.simulators.base import PassthroughSimulator
+from mev_kit.adapters.simulators.fill_simulator import FillSimulator
 from mev_kit.adapters.sinks.paper_trade import BacktestSink
 from mev_kit.models import ExecutionMode, PipelineConfig
 from mev_kit.pipeline.runner import Pipeline
@@ -92,9 +93,13 @@ class BacktestRunner:
             raise RuntimeError("Backtest already running")
         self._state = "running"
 
+        # Use FillSimulator for realistic execution modeling
+        venue = config.get("venue", "aggregated")
+        simulate_fills = config.get("simulate_fills", True)
+
         pipeline_config = PipelineConfig(
             mode=ExecutionMode.BACKTEST,
-            simulate_before_execute=config.get("simulate_before_execute", False),
+            simulate_before_execute=simulate_fills,
             min_spread_bps=config.get("min_spread_bps", 15.0),
             position_size_sol=config.get("position_size_sol", 0.01),
             circuit_breaker_enabled=False,
@@ -143,7 +148,14 @@ class BacktestRunner:
                 "position_size_sol": pipeline_config.position_size_sol,
             },
         )
-        simulator = PassthroughSimulator({})
+        if simulate_fills:
+            simulator = FillSimulator({
+                "venue": venue,
+                "landing_model": config.get("landing_model", "stochastic"),
+                "random_seed": config.get("random_seed"),
+            })
+        else:
+            simulator = PassthroughSimulator({})
         self._sink = BacktestSink({"output_path": None})
 
         self._pipeline = Pipeline(
@@ -198,7 +210,7 @@ class BacktestRunner:
 
         results = self._sink.results
         profits = [r["simulated_profit_sol"] for r in results]
-        return {
+        result = {
             "total_trades": len(results),
             "total_profit_sol": round(sum(profits), 6),
             "avg_profit_sol": round(sum(profits) / len(profits), 6) if profits else 0.0,
@@ -212,6 +224,24 @@ class BacktestRunner:
             ) if results else 0.0,
             "trades": results,
         }
+
+        # Include fill simulation stats if FillSimulator was used
+        if self._pipeline and hasattr(self._pipeline.simulator, "_total_simulated"):
+            sim = self._pipeline.simulator
+            result["fill_stats"] = {
+                "venue": getattr(sim, "venue_name", "unknown"),
+                "venue_label": sim.venue.get("label", "Unknown"),
+                "total_simulated": sim._total_simulated,
+                "total_landed": sim._total_landed,
+                "landing_rate_actual": round(
+                    sim._total_landed / max(1, sim._total_simulated), 4
+                ),
+                "landing_rate_model": sim.venue.get("landing_rate", 0),
+                "fee_bps": sim.venue.get("fee_bps", 0),
+                "avg_slippage_bps": sim.venue.get("base_slippage_bps", 0),
+            }
+
+        return result
 
     async def _persist_results_to_sqlite(self, db_path: str) -> None:
         """Write backtest results to SQLite for the Analysis page.

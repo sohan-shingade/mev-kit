@@ -75,6 +75,17 @@ export interface BacktestStatus {
   results?: BacktestResults;
 }
 
+export interface FillStats {
+  venue: string;
+  venue_label: string;
+  total_simulated: number;
+  total_landed: number;
+  landing_rate_actual: number;
+  landing_rate_model: number;
+  fee_bps: number;
+  avg_slippage_bps: number;
+}
+
 export interface BacktestResults {
   total_trades: number;
   total_profit_sol: number;
@@ -85,6 +96,7 @@ export interface BacktestResults {
   avg_spread_bps: number;
   trades: TradeRow[];
   message?: string;
+  fill_stats?: FillStats;
 }
 
 export interface AnalysisSummary {
