@@ -128,7 +128,7 @@ class PipelineManager:
 
     def hot_reload(self, params: dict) -> None:
         """Patch hot-reloadable params on the live detector."""
-        if self._pipeline is None:
+        if self._pipeline is None or self._task is None or self._task.done():
             raise RuntimeError("No pipeline running")
         detector = self._pipeline.detector
         for key, value in params.items():

@@ -285,8 +285,7 @@ def _load_detector(strategy: str, config: dict) -> Detector:
     if not file_path.exists():
         file_path = STRATEGIES_DIR / strategy  # try with .py extension
     if not file_path.exists():
-        logger.warning("backtest_runner.strategy_not_found", strategy=strategy)
-        return CEXDEXArbDetector(config)  # fallback
+        raise ValueError(f"Strategy not found: '{strategy}'. Available: {', '.join(builtins.keys())}")
 
     # Dynamic import from file
     spec = importlib.util.spec_from_file_location(name, str(file_path))

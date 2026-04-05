@@ -18,8 +18,8 @@ async def start_backtest(request: Request, body: dict[str, Any]) -> dict[str, st
     data_file = body.get("data_file") or body.get("data_path", "")
     # Prepend data dir if it's just a filename
     if data_file and "/" not in data_file:
-        data_dir = request.app.state.data_dir
-        data_file = f"{data_dir}/{data_file}" if not data_file.startswith(data_dir) else data_file
+        data_dir = request.app.state.data_dir.rstrip("/")
+        data_file = f"{data_dir}/{data_file}"
     config = body.get("config", body)  # Accept both nested and flat
     if _runner._state == "running":
         return {"status": "error", "error": "Backtest already running"}
