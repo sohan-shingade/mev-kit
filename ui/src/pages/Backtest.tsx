@@ -410,6 +410,21 @@ export default function Backtest() {
           />
         </div>
 
+        {/* Backtest disclaimer */}
+        {r.total_trades > 0 && (
+          <div className="bg-bg-panel/30 border border-border/40 rounded px-3 py-2 text-[10px] text-text-secondary leading-relaxed">
+            <span className="text-accent-amber font-semibold">Backtest limitations:</span>{" "}
+            Results assume instant execution at detected price with zero slippage, no competing searchers, and perfect fill rates.
+            Real execution via Jito bundles has ~30-50% landing rate, variable slippage based on trade size and pool depth,
+            and priority fee / tip costs not modeled here. Treat P&L as an upper bound — actual live performance will be lower.
+            {" "}Data source: {config.data_file.includes("birdeye") || config.data_file.includes("merged")
+              ? "Birdeye aggregated DEX price (weighted across Raydium, Orca, Meteora, Phoenix) — actual execution on a single venue may differ."
+              : config.data_file.includes("binance")
+              ? "Binance CEX candles — does not reflect on-chain execution conditions."
+              : "Parquet replay data."}
+          </div>
+        )}
+
         {/* Zero-trade explanation */}
         {r.total_trades === 0 && (
           <div className="bg-accent-amber/10 border border-accent-amber/40 rounded p-4 flex flex-col gap-2">
@@ -423,7 +438,14 @@ export default function Backtest() {
             )}
             <ul className="text-xs text-text-secondary list-disc list-inside space-y-1">
               <li>Try lowering <span className="font-mono text-accent-amber">min_spread_bps</span> — current value is {config.min_spread_bps} bps. Try 5–10 bps to confirm the pipeline is working.</li>
-              <li>Try a different strategy — the selected strategy may not match the data format.</li>
+              <li>Try a different strategy — the selected strategy may not match the data format.
+                {(config.strategy === "liquidation_detector") && (
+                  <span className="block text-accent-red mt-1">Liquidation detector requires lending protocol account state data (Solend, Marginfi health factors) — OHLCV price data from Binance/Birdeye will never trigger liquidation opportunities.</span>
+                )}
+                {(config.strategy === "multi_pool_arb") && (
+                  <span className="block text-accent-red mt-1">Multi-pool arb requires simultaneous state from multiple DEX pools — a single aggregated price feed won't work. Needs pool-specific data.</span>
+                )}
+              </li>
               <li>Use a different data file — the current file may cover a low-volatility period with few spread opportunities.</li>
             </ul>
           </div>
