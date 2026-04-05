@@ -32,11 +32,11 @@ export default function Layout() {
   );
 
   return (
-    <div className="flex flex-col h-screen overflow-hidden bg-[#0f0f1e]">
+    <div className="flex flex-col h-screen overflow-hidden bg-[#090b10]">
       {/* ── Top bar ── */}
-      <div className="h-[32px] bg-[#0d0d1a] border-b border-[#1a1a30] flex items-center shrink-0 select-none">
+      <div className="h-[32px] bg-[#070910] border-b border-[#141720] flex items-center shrink-0 select-none">
         {/* Brand */}
-        <div className="flex items-center gap-2 px-3 border-r border-[#1a1a30] h-full">
+        <div className="flex items-center gap-2 px-3 border-r border-[#141720] h-full">
           <Zap size={13} className="text-accent-indigo" />
           <span className="text-[11px] font-bold tracking-wider text-text-primary">
             MEV-KIT
@@ -45,7 +45,7 @@ export default function Layout() {
 
         {/* Breadcrumb */}
         <div className="flex items-center gap-1 px-3 text-[10px]">
-          <span className="text-[#4a4a6a]">/</span>
+          <span className="text-[#3a4050]">/</span>
           <span className="text-text-secondary font-medium">
             {currentPage?.label ?? "Dashboard"}
           </span>
@@ -55,9 +55,9 @@ export default function Layout() {
         <div className="flex-1" />
 
         {/* Keyboard hints */}
-        <div className="hidden md:flex items-center gap-3 px-3 text-[9px] text-[#3a3a5a]">
+        <div className="hidden md:flex items-center gap-3 px-3 text-[9px] text-[#2e3340]">
           <span>
-            <kbd className="px-1 py-0.5 bg-[#1a1a30] rounded text-[#5a5a7a] text-[8px]">
+            <kbd className="px-1 py-0.5 bg-[#141720] rounded text-[#4a5060] text-[8px]">
               ⌘K
             </kbd>{" "}
             commands
@@ -71,7 +71,7 @@ export default function Layout() {
         <nav
           className={`${
             collapsed ? "w-[44px]" : "w-[140px]"
-          } bg-[#0d0d1a] border-r border-[#1a1a30] flex flex-col shrink-0 transition-all duration-150`}
+          } bg-[#070910] border-r border-[#141720] flex flex-col shrink-0 transition-all duration-150`}
         >
           {/* Nav items */}
           <div className="flex-1 py-2 flex flex-col gap-0.5 px-1.5">
@@ -85,7 +85,7 @@ export default function Layout() {
                     "flex items-center gap-2 rounded h-[30px] transition-all duration-100 group relative";
                   const active = isActive
                     ? "bg-accent-indigo/10 text-accent-indigo border-l-2 border-accent-indigo pl-[6px]"
-                    : "text-[#5a5a7a] hover:text-text-secondary hover:bg-[#151530] border-l-2 border-transparent pl-[6px]";
+                    : "text-[#4a5060] hover:text-text-secondary hover:bg-[#10131a] border-l-2 border-transparent pl-[6px]";
                   const pad = collapsed ? "justify-center px-0" : "px-1.5";
                   return `${base} ${active} ${pad}`;
                 }}
@@ -97,7 +97,7 @@ export default function Layout() {
                   </span>
                 )}
                 {!collapsed && (
-                  <span className="ml-auto text-[9px] text-[#3a3a5a] font-mono">
+                  <span className="ml-auto text-[9px] text-[#2e3340] font-mono">
                     {shortcut}
                   </span>
                 )}
@@ -108,7 +108,7 @@ export default function Layout() {
           {/* Collapse toggle */}
           <button
             onClick={() => setCollapsed(!collapsed)}
-            className="h-[28px] flex items-center justify-center border-t border-[#1a1a30] text-[#3a3a5a] hover:text-text-secondary transition-colors"
+            className="h-[28px] flex items-center justify-center border-t border-[#141720] text-[#2e3340] hover:text-text-secondary transition-colors"
           >
             {collapsed ? <ChevronRight size={12} /> : <ChevronLeft size={12} />}
           </button>

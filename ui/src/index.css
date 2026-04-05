@@ -1,21 +1,22 @@
 @import "tailwindcss";
 
 @theme {
-  --color-bg-main: #1a1a2e;
-  --color-bg-panel: #16213e;
-  --color-bg-sidebar: #12122a;
-  --color-bg-active: #252547;
-  --color-border: #2a2a4a;
-  --color-text-primary: #e0e0e0;
-  --color-text-secondary: #7f8ea3;
-  --color-accent-green: #00e676;
-  --color-accent-red: #ef5350;
-  --color-accent-amber: #ffab00;
-  --color-accent-indigo: #6366f1;
+  /* Bloomberg-inspired trading terminal palette */
+  --color-bg-main: #0c0e14;       /* near-black with cool undertone */
+  --color-bg-panel: #111318;      /* slightly lighter, card surfaces */
+  --color-bg-sidebar: #090b10;    /* deepest black for chrome */
+  --color-bg-active: #1a1d26;     /* hover/active state */
+  --color-border: #1e2130;        /* subtle separation, not distracting */
+  --color-text-primary: #c8ccd4;  /* slightly warm gray, easier on eyes */
+  --color-text-secondary: #5c6370; /* muted, recedes from data */
+  --color-accent-green: #00c853;  /* money green — profit, landed, success */
+  --color-accent-red: #ff1744;    /* danger red — loss, failed, critical */
+  --color-accent-amber: #ffa000;  /* alert amber — warnings, spreads, attention */
+  --color-accent-indigo: #18b4f5; /* electric cyan — interactive, links, active */
 }
 
 body {
-  background-color: #0f0f1e;
+  background-color: #090b10;
   color: var(--color-text-primary);
   font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
   margin: 0;
@@ -30,8 +31,8 @@ body {
 /* Scrollbar styling for the terminal feel */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #2a2a4a; border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: #3a3a5a; }
+::-webkit-scrollbar-thumb { background: #1e2130; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #2a2e3a; }
 
 /* Keyboard shortcuts badge */
 kbd {
