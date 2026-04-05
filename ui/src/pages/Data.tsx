@@ -155,6 +155,7 @@ export default function Data() {
   const [duration, setDuration] = useState(7);
   const [autoMerge, setAutoMerge] = useState(true);
   const [applyLag, setApplyLag] = useState(true);
+  const [useBinanceUs, setUseBinanceUs] = useState(false);
   const [fetching, setFetching] = useState(false);
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
 
@@ -276,7 +277,7 @@ export default function Data() {
       const result = await post<{ status: string; job_id?: string; error?: string }>(
         "/api/data/fetch/market",
         {
-          market: selectedMarket,
+          market: { ...selectedMarket, use_binance_us: useBinanceUs },
           venues: Array.from(selectedVenues),
           interval: resolution,
           days: duration,
@@ -458,6 +459,17 @@ export default function Data() {
               <span className="text-text-primary">Binance</span>
               <span className="text-[10px] text-text-secondary">(CEX)</span>
             </label>
+            {selectedVenues.has("binance") && (
+              <label className="flex items-center gap-1.5 text-xs cursor-pointer select-none ml-1">
+                <input
+                  type="checkbox"
+                  checked={useBinanceUs}
+                  onChange={(e) => setUseBinanceUs(e.target.checked)}
+                  className="accent-accent-indigo"
+                />
+                <span className="text-text-secondary">US endpoint</span>
+              </label>
+            )}
 
             {/* Birdeye */}
             <label
