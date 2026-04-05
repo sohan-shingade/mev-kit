@@ -361,17 +361,22 @@ async def _run_coinbase_fetch(
                     break
 
                 for c in candles:
-                    # Response: {"time": unix, "low", "high", "open", "close", "volume"}
-                    ts = c.get("time", 0)
+                    # Coinbase returns arrays: [timestamp, low, high, open, close, volume]
+                    if isinstance(c, list):
+                        ts, low, high, opn, close, vol = c[0], c[1], c[2], c[3], c[4], c[5]
+                    else:
+                        ts = c.get("time", 0)
+                        low, high, opn, close = c["low"], c["high"], c["open"], c["close"]
+                        vol = c.get("volume", 0)
                     all_rows.append({
                         "symbol": product_id,
-                        "price": float(c["close"]),
-                        "volume": float(c.get("volume", 0)),
-                        "timestamp": datetime.fromtimestamp(ts, tz=UTC),
-                        "open": float(c["open"]),
-                        "high": float(c["high"]),
-                        "low": float(c["low"]),
-                        "close": float(c["close"]),
+                        "price": float(close),
+                        "volume": float(vol),
+                        "timestamp": datetime.fromtimestamp(int(ts), tz=UTC),
+                        "open": float(opn),
+                        "high": float(high),
+                        "low": float(low),
+                        "close": float(close),
                     })
 
                 _fetch_jobs[job_id]["progress"] = len(all_rows)
