@@ -25,6 +25,19 @@ interface BacktestConfig {
   simulate_before_execute: boolean;
 }
 
+interface FileSource {
+  type: string;
+  venue: string;
+  status: string;
+}
+
+interface FileSources {
+  sources: FileSource[];
+  merged: boolean;
+  columns: string[];
+  error?: string;
+}
+
 interface StrategyInfo {
   name: string;
   required_sources: string[];
@@ -137,6 +150,15 @@ export default function Backtest() {
   const PER_PAGE = 50;
 
   const [strategyInfo, setStrategyInfo] = useState<StrategyInfo | null>(null);
+  const [fileSources, setFileSources] = useState<FileSources | null>(null);
+
+  // Fetch file source info when data file changes
+  useEffect(() => {
+    if (!config.data_file) { setFileSources(null); return; }
+    get<FileSources>(`/api/data/files/${config.data_file}/sources`)
+      .then((info) => { if (!info.error) setFileSources(info); })
+      .catch(() => setFileSources(null));
+  }, [config.data_file]);
 
   // Recent runs history
   const [history, setHistory] = useState<RunHistoryEntry[]>(loadHistory);
@@ -455,59 +477,80 @@ export default function Backtest() {
           )}
         </div>
 
-        {/* Data source info — dynamic based on strategy requirements */}
-        {strategyInfo && (
+        {/* Data source cross-check: what's in the file vs what the strategy needs */}
+        {(fileSources || strategyInfo) && (
           <div className="flex flex-col gap-2 bg-bg-main/50 rounded p-3 border border-border/40">
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] text-text-secondary uppercase tracking-wider">Data Sources</span>
-              {strategyInfo.required_sources.length > 0 && (
-                <div className="flex gap-1">
-                  {strategyInfo.required_sources.map((s) => (
-                    <span key={s} className="text-[9px] px-1.5 py-0.5 bg-bg-panel rounded text-text-secondary">
-                      {s.replace("_", " ")}
+            {/* What the dataset contains */}
+            {fileSources && fileSources.sources.length > 0 && (
+              <div className="flex flex-col gap-1">
+                <span className="text-[10px] text-text-secondary uppercase tracking-wider">Dataset contains</span>
+                <div className="flex flex-wrap gap-1.5">
+                  {fileSources.sources.map((s, i) => (
+                    <span key={i} className="text-[10px] px-2 py-0.5 bg-accent-green/10 border border-accent-green/30 text-accent-green rounded">
+                      {s.venue} ({s.type.toUpperCase()})
                     </span>
                   ))}
+                  {fileSources.merged && (
+                    <span className="text-[10px] px-2 py-0.5 bg-accent-indigo/10 border border-accent-indigo/30 text-accent-indigo rounded">
+                      merged + lag-corrected
+                    </span>
+                  )}
                 </div>
-              )}
-            </div>
+              </div>
+            )}
 
-            {/* Merged dataset detected */}
-            {(config.data_file.includes("merged") || config.data_file.startsWith("backtest_")) ? (
-              <p className="text-[10px] text-accent-green">
-                Merged dataset — contains both DEX and CEX prices, time-aligned with lag. Ready to backtest.
-              </p>
-            ) : strategyInfo.needs_dual_source ? (
-              /* Dual-source: needs a CEX file */
-              <div className="flex flex-col gap-1.5">
+            {/* What the strategy requires */}
+            {strategyInfo && (
+              <div className="flex flex-col gap-1">
+                <span className="text-[10px] text-text-secondary uppercase tracking-wider">Strategy requires</span>
+                <div className="flex flex-wrap gap-1.5">
+                  {strategyInfo.needs_dex && (
+                    <span className={`text-[10px] px-2 py-0.5 rounded border ${
+                      fileSources?.sources.some(s => s.type === "dex")
+                        ? "bg-accent-green/10 border-accent-green/30 text-accent-green"
+                        : "bg-accent-red/10 border-accent-red/30 text-accent-red"
+                    }`}>
+                      {fileSources?.sources.some(s => s.type === "dex") ? "✓" : "✗"} DEX price feed
+                    </span>
+                  )}
+                  {strategyInfo.needs_cex && (
+                    <span className={`text-[10px] px-2 py-0.5 rounded border ${
+                      fileSources?.sources.some(s => s.type === "cex") || config.cex_data_file
+                        ? "bg-accent-green/10 border-accent-green/30 text-accent-green"
+                        : "bg-accent-red/10 border-accent-red/30 text-accent-red"
+                    }`}>
+                      {fileSources?.sources.some(s => s.type === "cex") || config.cex_data_file ? "✓" : "✗"} CEX price feed
+                    </span>
+                  )}
+                  {!strategyInfo.needs_cex && !strategyInfo.needs_dex && (
+                    <span className="text-[10px] px-2 py-0.5 bg-accent-green/10 border border-accent-green/30 text-accent-green rounded">
+                      ✓ Any price data
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* CEX file selector — only when strategy needs CEX and dataset doesn't have it */}
+            {strategyInfo?.needs_cex &&
+             !fileSources?.sources.some(s => s.type === "cex") && (
+              <div className="flex flex-col gap-1.5 mt-1">
                 <label className="text-[10px] text-text-secondary">
-                  CEX Data File <span className="text-accent-amber">(needed: {strategyInfo.required_sources.filter(s => s === "binance_ws").join(", ") || "CEX price feed"})</span>
+                  Add CEX Data File
                 </label>
                 <select
                   value={config.cex_data_file}
                   onChange={(e) => setConfig((c) => ({ ...c, cex_data_file: e.target.value }))}
                   className="bg-bg-main border border-border rounded px-2 py-1.5 text-xs text-text-primary focus:outline-none focus:border-accent-indigo"
                 >
-                  <option value="">None (single-source)</option>
+                  <option value="">Select a CEX file...</option>
                   {files.map((f) => (
                     <option key={f.name} value={f.name}>
                       {f.name} ({f.rows.toLocaleString()} rows)
                     </option>
                   ))}
                 </select>
-                {!config.cex_data_file && (
-                  <p className="text-[10px] text-accent-amber">
-                    This strategy needs both DEX and CEX data. Use a merged dataset or select a CEX file. Without it, 0 trades will be detected.
-                  </p>
-                )}
               </div>
-            ) : strategyInfo.required_sources.length === 0 ? (
-              <p className="text-[10px] text-text-secondary">
-                This strategy accepts any data source.
-              </p>
-            ) : (
-              <p className="text-[10px] text-text-secondary">
-                Single-source strategy — no additional data files needed.
-              </p>
             )}
           </div>
         )}
@@ -593,12 +636,24 @@ export default function Backtest() {
 
         <button
           onClick={handleStart}
-          disabled={!config.data_file}
+          disabled={
+            !config.data_file ||
+            (strategyInfo?.needs_cex === true &&
+             !fileSources?.sources.some(s => s.type === "cex") &&
+             !config.cex_data_file)
+          }
           className="flex items-center justify-center gap-2 px-4 py-2 text-xs font-semibold bg-accent-indigo/20 border border-accent-indigo/50 text-accent-indigo rounded hover:bg-accent-indigo/30 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
         >
           <Play size={12} />
           Run Backtest
         </button>
+        {strategyInfo?.needs_cex &&
+         !fileSources?.sources.some(s => s.type === "cex") &&
+         !config.cex_data_file && (
+          <p className="text-[10px] text-accent-red text-center">
+            Missing CEX data — select a merged dataset or add a CEX file above
+          </p>
+        )}
       </div>
 
       {/* Recent Runs */}

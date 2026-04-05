@@ -54,6 +54,54 @@ async def download_file(request: Request, name: str):
     return FileResponse(str(path), filename=name, media_type="application/octet-stream")
 
 
+@router.get("/files/{name}/sources")
+async def detect_file_sources(request: Request, name: str) -> dict[str, Any]:
+    """Analyze a Parquet file and return what data sources it contains."""
+    path = Path(request.app.state.data_dir) / name
+    if not path.exists():
+        return {"error": f"File not found: {name}"}
+
+    try:
+        schema = pl.read_parquet_schema(str(path))
+        columns = set(schema.keys()) if isinstance(schema, dict) else set(schema)
+    except Exception as exc:
+        return {"error": str(exc)}
+
+    sources: list[dict[str, str]] = []
+
+    # Check for merged dataset (has both DEX and CEX)
+    if "dex_price" in columns and "cex_price" in columns:
+        sources.append({"type": "dex", "venue": "Birdeye / DEX aggregated", "status": "included"})
+        sources.append({"type": "cex", "venue": "Binance / CEX", "status": "included"})
+        return {"sources": sources, "merged": True, "columns": sorted(columns)}
+
+    # Check for pool/DEX data
+    if "pool_address" in columns:
+        venue = "Raydium pool state"
+        if "birdeye" in name.lower():
+            venue = "Birdeye DEX aggregated"
+        sources.append({"type": "dex", "venue": venue, "status": "included"})
+
+    # Check for OHLCV/price data
+    ohlcv = {"open", "high", "low", "close"}
+    if ohlcv.issubset(columns):
+        venue = "Unknown CEX"
+        lower = name.lower()
+        if "binance" in lower:
+            venue = "Binance"
+        elif "coinbase" in lower:
+            venue = "Coinbase"
+        elif "bybit" in lower:
+            venue = "Bybit"
+        sources.append({"type": "cex", "venue": venue, "status": "included"})
+
+    # Generic price data
+    if "symbol" in columns and "price" in columns and not ohlcv.issubset(columns):
+        sources.append({"type": "price", "venue": "Generic price feed", "status": "included"})
+
+    return {"sources": sources, "merged": False, "columns": sorted(columns)}
+
+
 @router.delete("/files/{name}")
 async def delete_file(request: Request, name: str) -> dict[str, str]:
     mgr = DataManager(request.app.state.data_dir)
