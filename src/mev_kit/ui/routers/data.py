@@ -312,6 +312,196 @@ async def _run_birdeye_fetch(
         _fetch_jobs[job_id]["error"] = str(exc)
 
 
+async def _run_coinbase_fetch(
+    job_id: str, symbol: str, interval: str, days: int, data_dir: str
+) -> None:
+    """Fetch historical candles from Coinbase Exchange API (free, no key)."""
+    # Map interval to Coinbase granularity (seconds)
+    granularity_map = {"1m": 60, "5m": 300, "15m": 900, "1h": 3600, "6h": 21600, "1d": 86400}
+    granularity = granularity_map.get(interval, 60)
+
+    # Coinbase uses product_id format: SOL-USD
+    # Convert from SOLUSDT-style to SOL-USD
+    product_id = symbol.upper()
+    if "-" not in product_id:
+        # Try to split: SOLUSDT -> SOL-USDT, SOLUSD -> SOL-USD
+        for quote in ("USDT", "USDC", "USD", "BTC", "ETH"):
+            if product_id.endswith(quote):
+                product_id = f"{product_id[:-len(quote)]}-{quote}"
+                break
+
+    url = f"https://api.exchange.coinbase.com/products/{product_id}/candles"
+    max_per_request = 300
+    total_candles = (days * 86400) // granularity
+
+    _fetch_jobs[job_id]["total"] = total_candles
+    all_rows: list[dict] = []
+
+    now = int(datetime.now(UTC).timestamp())
+    current_end = now
+    current_start = now - (days * 86400)
+
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            while current_start < current_end:
+                # Coinbase returns max 300 candles per request
+                batch_end = min(current_start + (max_per_request * granularity), current_end)
+
+                params: dict[str, Any] = {
+                    "granularity": granularity,
+                    "start": datetime.fromtimestamp(current_start, tz=UTC).isoformat(),
+                    "end": datetime.fromtimestamp(batch_end, tz=UTC).isoformat(),
+                }
+
+                resp = await client.get(url, params=params)
+                resp.raise_for_status()
+                candles = resp.json()
+
+                if not candles:
+                    break
+
+                for c in candles:
+                    # Response: {"time": unix, "low", "high", "open", "close", "volume"}
+                    ts = c.get("time", 0)
+                    all_rows.append({
+                        "symbol": product_id,
+                        "price": float(c["close"]),
+                        "volume": float(c.get("volume", 0)),
+                        "timestamp": datetime.fromtimestamp(ts, tz=UTC),
+                        "open": float(c["open"]),
+                        "high": float(c["high"]),
+                        "low": float(c["low"]),
+                        "close": float(c["close"]),
+                    })
+
+                _fetch_jobs[job_id]["progress"] = len(all_rows)
+                current_start = batch_end
+
+                # Rate limit
+                await asyncio.sleep(0.3)
+
+        if all_rows:
+            # Sort by timestamp (Coinbase returns newest-first)
+            all_rows.sort(key=lambda r: r["timestamp"])
+            df = pl.DataFrame(all_rows)
+            Path(data_dir).mkdir(parents=True, exist_ok=True)
+            ts_str = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
+            filename = f"coinbase_{product_id.lower().replace('-', '_')}_{interval}_{ts_str}.parquet"
+            df.write_parquet(str(Path(data_dir) / filename))
+            _fetch_jobs[job_id]["status"] = "completed"
+            _fetch_jobs[job_id]["file"] = filename
+            _fetch_jobs[job_id]["rows"] = len(all_rows)
+        else:
+            _fetch_jobs[job_id]["status"] = "completed"
+            _fetch_jobs[job_id]["rows"] = 0
+
+    except Exception as exc:
+        logger.warning("fetch_coinbase.error", error=str(exc))
+        _fetch_jobs[job_id]["status"] = "error"
+        _fetch_jobs[job_id]["error"] = str(exc)
+
+
+async def _run_bybit_fetch(
+    job_id: str, symbol: str, interval: str, days: int, data_dir: str
+) -> None:
+    """Fetch historical klines from Bybit v5 API (free, no key)."""
+    # Map interval to Bybit format
+    interval_map = {"1m": "1", "3m": "3", "5m": "5", "15m": "15", "30m": "30",
+                    "1h": "60", "2h": "120", "4h": "240", "1d": "D"}
+    bybit_interval = interval_map.get(interval, "1")
+
+    url = "https://api.bybit.com/v5/market/kline"
+    max_limit = 1000
+    seconds_map = {"1": 60, "3": 180, "5": 300, "15": 900, "30": 1800,
+                   "60": 3600, "120": 7200, "240": 14400, "D": 86400}
+    secs = seconds_map.get(bybit_interval, 60)
+    total_candles = (days * 86400) // secs
+
+    _fetch_jobs[job_id]["total"] = total_candles
+    all_rows: list[dict] = []
+
+    now_ms = int(datetime.now(UTC).timestamp() * 1000)
+    start_ms = now_ms - (days * 86400 * 1000)
+
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            current_start = start_ms
+            while current_start < now_ms:
+                params: dict[str, Any] = {
+                    "category": "spot",
+                    "symbol": symbol.upper(),
+                    "interval": bybit_interval,
+                    "start": current_start,
+                    "end": now_ms,
+                    "limit": max_limit,
+                }
+
+                resp = await client.get(url, params=params)
+                resp.raise_for_status()
+                data = resp.json()
+
+                if data.get("retCode") != 0:
+                    raise Exception(f"Bybit API error: {data.get('retMsg')}")
+
+                candles = data.get("result", {}).get("list", [])
+                if not candles:
+                    break
+
+                for c in candles:
+                    # c = [startTime_ms, open, high, low, close, volume, turnover]
+                    all_rows.append({
+                        "symbol": symbol.upper(),
+                        "price": float(c[4]),  # close
+                        "volume": float(c[5]),
+                        "timestamp": datetime.fromtimestamp(int(c[0]) / 1000, tz=UTC),
+                        "open": float(c[1]),
+                        "high": float(c[2]),
+                        "low": float(c[3]),
+                        "close": float(c[4]),
+                    })
+
+                _fetch_jobs[job_id]["progress"] = len(all_rows)
+
+                if len(candles) < max_limit:
+                    break
+
+                # Bybit returns newest-first, so advance past the oldest candle
+                oldest_ts = min(int(c[0]) for c in candles)
+                current_start = oldest_ts + (secs * 1000)
+
+                await asyncio.sleep(0.05)  # Bybit allows 120 req/sec
+
+        if all_rows:
+            # Sort by timestamp (Bybit returns newest-first)
+            all_rows.sort(key=lambda r: r["timestamp"])
+            # Deduplicate
+            seen: set[str] = set()
+            unique: list[dict] = []
+            for r in all_rows:
+                key = str(r["timestamp"])
+                if key not in seen:
+                    seen.add(key)
+                    unique.append(r)
+            all_rows = unique
+
+            df = pl.DataFrame(all_rows)
+            Path(data_dir).mkdir(parents=True, exist_ok=True)
+            ts_str = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
+            filename = f"bybit_{symbol.lower()}_{interval}_{ts_str}.parquet"
+            df.write_parquet(str(Path(data_dir) / filename))
+            _fetch_jobs[job_id]["status"] = "completed"
+            _fetch_jobs[job_id]["file"] = filename
+            _fetch_jobs[job_id]["rows"] = len(all_rows)
+        else:
+            _fetch_jobs[job_id]["status"] = "completed"
+            _fetch_jobs[job_id]["rows"] = 0
+
+    except Exception as exc:
+        logger.warning("fetch_bybit.error", error=str(exc))
+        _fetch_jobs[job_id]["status"] = "error"
+        _fetch_jobs[job_id]["error"] = str(exc)
+
+
 async def _run_binance_fetch(
     job_id: str, symbol: str, interval: str, days: int, data_dir: str, use_us: bool = False
 ) -> None:
@@ -548,6 +738,36 @@ async def _run_market_fetch(
             step += 1
             _fetch_jobs[job_id]["progress"] = step
 
+        # Coinbase
+        if "coinbase" in venues and market.get("coinbase_symbol"):
+            _fetch_jobs[job_id]["steps"]["coinbase"] = "running"
+            coinbase_job = f"{job_id}_coinbase"
+            _fetch_jobs[coinbase_job] = {"status": "running", "progress": 0, "total": 0}
+            await _run_coinbase_fetch(coinbase_job, market["coinbase_symbol"], interval, days, data_dir)
+            if _fetch_jobs[coinbase_job]["status"] == "completed":
+                fetched_files["coinbase"] = _fetch_jobs[coinbase_job].get("file", "")
+                _fetch_jobs[job_id]["steps"]["coinbase"] = "completed"
+                _fetch_jobs[job_id]["steps"]["coinbase_rows"] = _fetch_jobs[coinbase_job].get("rows", 0)
+            else:
+                _fetch_jobs[job_id]["steps"]["coinbase"] = f"error: {_fetch_jobs[coinbase_job].get('error', 'unknown')}"
+            step += 1
+            _fetch_jobs[job_id]["progress"] = step
+
+        # Bybit
+        if "bybit" in venues and market.get("bybit_symbol"):
+            _fetch_jobs[job_id]["steps"]["bybit"] = "running"
+            bybit_job = f"{job_id}_bybit"
+            _fetch_jobs[bybit_job] = {"status": "running", "progress": 0, "total": 0}
+            await _run_bybit_fetch(bybit_job, market["bybit_symbol"], interval, days, data_dir)
+            if _fetch_jobs[bybit_job]["status"] == "completed":
+                fetched_files["bybit"] = _fetch_jobs[bybit_job].get("file", "")
+                _fetch_jobs[job_id]["steps"]["bybit"] = "completed"
+                _fetch_jobs[job_id]["steps"]["bybit_rows"] = _fetch_jobs[bybit_job].get("rows", 0)
+            else:
+                _fetch_jobs[job_id]["steps"]["bybit"] = f"error: {_fetch_jobs[bybit_job].get('error', 'unknown')}"
+            step += 1
+            _fetch_jobs[job_id]["progress"] = step
+
         # Step 2: Fetch Birdeye (DEX)
         if "birdeye" in venues and market.get("birdeye_base"):
             api_key = os.environ.get("BIRDEYE_API_KEY", "")
@@ -620,7 +840,11 @@ async def _run_market_fetch(
             _fetch_jobs[job_id]["progress"] = step
 
         # Step 4: Auto-merge if we have both CEX and DEX data
-        if auto_merge and "cex" in fetched_files and "dex" in fetched_files:
+        # Prefer Binance, fall back to Coinbase or Bybit as CEX source
+        cex_file = fetched_files.get("cex") or fetched_files.get("coinbase") or fetched_files.get("bybit")
+        dex_file = fetched_files.get("dex")
+
+        if auto_merge and cex_file and dex_file:
             _fetch_jobs[job_id]["steps"]["merge"] = "running"
 
             interval_secs = _parse_duration_to_seconds(interval, default=60)
@@ -630,8 +854,8 @@ async def _run_market_fetch(
 
             try:
                 stats = prepare_backtest_data(
-                    dex_path=f"{data_dir}/{fetched_files['dex']}",
-                    cex_path=f"{data_dir}/{fetched_files['cex']}",
+                    dex_path=f"{data_dir}/{dex_file}",
+                    cex_path=f"{data_dir}/{cex_file}",
                     output_path=output_path,
                     interval_seconds=interval_secs,
                     lag=lag,

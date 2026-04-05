@@ -26,6 +26,8 @@ function formatDate(ts: number) {
 interface MarketPreset {
   label: string;
   binance_symbol: string;
+  coinbase_symbol: string;
+  bybit_symbol: string;
   birdeye_base: string;
   birdeye_quote: string;
   helius_pool: string;
@@ -35,6 +37,8 @@ const MARKET_PRESETS: MarketPreset[] = [
   {
     label: "SOL/USDC",
     binance_symbol: "SOLUSDT",
+    coinbase_symbol: "SOL-USD",
+    bybit_symbol: "SOLUSDT",
     birdeye_base: "So11111111111111111111111111111111111111112",
     birdeye_quote: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
     helius_pool: "58oQChx4yWmvKdwLLZzBi4ChoCc2fqCUWBkwMihLYQo2",
@@ -42,6 +46,8 @@ const MARKET_PRESETS: MarketPreset[] = [
   {
     label: "SOL/USDT",
     binance_symbol: "SOLUSDT",
+    coinbase_symbol: "SOL-USD",
+    bybit_symbol: "SOLUSDT",
     birdeye_base: "So11111111111111111111111111111111111111112",
     birdeye_quote: "Es9vMFrzaCERmKfreVDyFe3GHMC3dYTzJ3tEX2s8VdDg",
     helius_pool: "7XawhbbxtsRcQA8KTkHT9f9nc6d69UwqCDh6U5EEbEmX",
@@ -49,6 +55,8 @@ const MARKET_PRESETS: MarketPreset[] = [
   {
     label: "WIF/USDC",
     binance_symbol: "WIFUSDT",
+    coinbase_symbol: "",
+    bybit_symbol: "WIFUSDT",
     birdeye_base: "EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm",
     birdeye_quote: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
     helius_pool: "",
@@ -56,6 +64,8 @@ const MARKET_PRESETS: MarketPreset[] = [
   {
     label: "JUP/USDC",
     binance_symbol: "JUPUSDT",
+    coinbase_symbol: "",
+    bybit_symbol: "JUPUSDT",
     birdeye_base: "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",
     birdeye_quote: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
     helius_pool: "",
@@ -63,6 +73,8 @@ const MARKET_PRESETS: MarketPreset[] = [
   {
     label: "BONK/USDC",
     binance_symbol: "BONKUSDT",
+    coinbase_symbol: "BONK-USD",
+    bybit_symbol: "BONKUSDT",
     birdeye_base: "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263",
     birdeye_quote: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
     helius_pool: "",
@@ -70,6 +82,8 @@ const MARKET_PRESETS: MarketPreset[] = [
   {
     label: "RAY/USDC",
     binance_symbol: "RAYUSDT",
+    coinbase_symbol: "",
+    bybit_symbol: "RAYUSDT",
     birdeye_base: "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R",
     birdeye_quote: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
     helius_pool: "6UmmUiYoBjSrhakAobJw8BvkmJtDVxaeBtbt7rxWo1mg",
@@ -77,6 +91,8 @@ const MARKET_PRESETS: MarketPreset[] = [
   {
     label: "JTO/USDC",
     binance_symbol: "JTOUSDT",
+    coinbase_symbol: "JTO-USD",
+    bybit_symbol: "JTOUSDT",
     birdeye_base: "jtojtomepa8beP8AuQc6eXt5FriJwfFwwn2LwDeFkt",
     birdeye_quote: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
     helius_pool: "",
@@ -84,6 +100,8 @@ const MARKET_PRESETS: MarketPreset[] = [
   {
     label: "PYTH/USDC",
     binance_symbol: "PYTHUSDT",
+    coinbase_symbol: "",
+    bybit_symbol: "PYTHUSDT",
     birdeye_base: "HZ1JovNiVvGrGNiiYvEozEVgZ58xaU3RKwX8eACQBCt3",
     birdeye_quote: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
     helius_pool: "",
@@ -91,6 +109,8 @@ const MARKET_PRESETS: MarketPreset[] = [
   {
     label: "mSOL/SOL",
     binance_symbol: "",
+    coinbase_symbol: "",
+    bybit_symbol: "",
     birdeye_base: "mSoLzYCxHdYgdzU16g5QSh3i5K3z3KZK7ytfqcJm7So",
     birdeye_quote: "So11111111111111111111111111111111111111112",
     helius_pool: "EGZ7tiLeH62TPV1gL8WwbXGzEPa9zmcpVnnkPKKnrE2U",
@@ -113,7 +133,7 @@ const DURATION_OPTIONS = [
   { value: 30, label: "30 days" },
 ];
 
-type VenueName = "binance" | "birdeye" | "helius";
+type VenueName = "binance" | "coinbase" | "bybit" | "birdeye" | "helius";
 
 interface MarketFetchJob {
   status: "running" | "completed" | "error";
@@ -214,12 +234,16 @@ export default function Data() {
     setSelectedVenues((prev) => {
       const next = new Set(prev);
       if (!selectedMarket.binance_symbol) next.delete("binance");
+      if (!selectedMarket.coinbase_symbol) next.delete("coinbase");
+      if (!selectedMarket.bybit_symbol) next.delete("bybit");
       if (!selectedMarket.birdeye_base) next.delete("birdeye");
       if (!selectedMarket.helius_pool) next.delete("helius");
       // Ensure at least one venue is selected
       if (next.size === 0) {
         if (selectedMarket.birdeye_base) next.add("birdeye");
         else if (selectedMarket.binance_symbol) next.add("binance");
+        else if (selectedMarket.coinbase_symbol) next.add("coinbase");
+        else if (selectedMarket.bybit_symbol) next.add("bybit");
       }
       return next;
     });
@@ -471,6 +495,50 @@ export default function Data() {
               </label>
             )}
 
+            {/* Coinbase */}
+            <label
+              className={`flex items-center gap-1.5 text-xs cursor-pointer select-none ${
+                !selectedMarket.coinbase_symbol ? "opacity-40 cursor-not-allowed" : ""
+              }`}
+              title={
+                !selectedMarket.coinbase_symbol
+                  ? `${selectedMarket.label} is not listed on Coinbase`
+                  : "Coinbase Exchange historical OHLCV (CEX, no key)"
+              }
+            >
+              <input
+                type="checkbox"
+                checked={selectedVenues.has("coinbase")}
+                disabled={!selectedMarket.coinbase_symbol}
+                onChange={() => toggleVenue("coinbase")}
+                className="accent-accent-amber"
+              />
+              <span className="text-text-primary">Coinbase</span>
+              <span className="text-[10px] text-text-secondary">(CEX, no key)</span>
+            </label>
+
+            {/* Bybit */}
+            <label
+              className={`flex items-center gap-1.5 text-xs cursor-pointer select-none ${
+                !selectedMarket.bybit_symbol ? "opacity-40 cursor-not-allowed" : ""
+              }`}
+              title={
+                !selectedMarket.bybit_symbol
+                  ? `${selectedMarket.label} is not listed on Bybit`
+                  : "Bybit v5 historical OHLCV (CEX, no key)"
+              }
+            >
+              <input
+                type="checkbox"
+                checked={selectedVenues.has("bybit")}
+                disabled={!selectedMarket.bybit_symbol}
+                onChange={() => toggleVenue("bybit")}
+                className="accent-accent-amber"
+              />
+              <span className="text-text-primary">Bybit</span>
+              <span className="text-[10px] text-text-secondary">(CEX, no key)</span>
+            </label>
+
             {/* Birdeye */}
             <label
               className={`flex items-center gap-1.5 text-xs cursor-pointer select-none ${
@@ -637,6 +705,26 @@ export default function Data() {
                   status={String(activeJob.steps.binance)}
                   rows={activeJob.steps.binance_rows as number | undefined}
                   subJob={activeSubJobs[`${activeJobId}_binance`]}
+                />
+              )}
+
+              {/* Coinbase step */}
+              {activeJob.steps && "coinbase" in activeJob.steps && (
+                <StepRow
+                  label={`Coinbase ${selectedMarket.coinbase_symbol}`}
+                  status={String(activeJob.steps.coinbase)}
+                  rows={activeJob.steps.coinbase_rows as number | undefined}
+                  subJob={activeSubJobs[`${activeJobId}_coinbase`]}
+                />
+              )}
+
+              {/* Bybit step */}
+              {activeJob.steps && "bybit" in activeJob.steps && (
+                <StepRow
+                  label={`Bybit ${selectedMarket.bybit_symbol}`}
+                  status={String(activeJob.steps.bybit)}
+                  rows={activeJob.steps.bybit_rows as number | undefined}
+                  subJob={activeSubJobs[`${activeJobId}_bybit`]}
                 />
               )}
 
