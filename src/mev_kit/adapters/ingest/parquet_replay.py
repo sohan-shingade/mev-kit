@@ -34,6 +34,9 @@ class ParquetReplayAdapter(IngestAdapter):
         self.path = config.get("path", "")
         self.speed_multiplier = config.get("speed_multiplier", 0)
         self.source_type = config.get("source_type", "pool")
+        # Override the source tag (e.g., BINANCE_WS for CEX replay data)
+        source_override = config.get("source_override")
+        self._source = Source(source_override) if source_override else Source.PARQUET_REPLAY
         self._df: pl.DataFrame | None = None
 
     async def connect(self) -> None:
@@ -93,17 +96,17 @@ class ParquetReplayAdapter(IngestAdapter):
                     slot=int(row.get("slot", 0)),
                     timestamp=_parse_timestamp(row.get("timestamp")),
                 )
-                return StateUpdate(source=Source.PARQUET_REPLAY, pool=pool)
+                return StateUpdate(source=self._source, pool=pool)
 
             elif self.source_type == "price":
                 price = PriceUpdate(
                     symbol=str(row.get("symbol", "")),
                     price=float(row.get("price", 0)),
                     volume=row.get("volume"),
-                    source=Source.PARQUET_REPLAY,
+                    source=self._source,
                     timestamp=_parse_timestamp(row.get("timestamp")),
                 )
-                return StateUpdate(source=Source.PARQUET_REPLAY, price=price)
+                return StateUpdate(source=self._source, price=price)
 
         except (ValueError, KeyError, TypeError):
             return None

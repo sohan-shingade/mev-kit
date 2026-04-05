@@ -17,12 +17,18 @@ const BUILTIN_STRATEGIES: StrategyOption[] = [
 
 interface BacktestConfig {
   data_file: string;
+  cex_data_file: string;
   strategy: string;
   min_spread_bps: number;
   fee_bps: number;
   position_size_sol: number;
   simulate_before_execute: boolean;
 }
+
+// Strategies that need dual-source data (DEX + CEX)
+const DUAL_SOURCE_STRATEGIES = new Set([
+  "cex_dex_arb", "spread_tracker", "statistical_arb",
+]);
 
 interface RunHistoryEntry {
   id: string;
@@ -112,6 +118,7 @@ export default function Backtest() {
   const [strategies, setStrategies] = useState<StrategyOption[]>(BUILTIN_STRATEGIES);
   const [config, setConfig] = useState<BacktestConfig>({
     data_file: "",
+    cex_data_file: "",
     strategy: "cex_dex_arb",
     min_spread_bps: 20,
     fee_bps: 30,
@@ -429,6 +436,32 @@ export default function Backtest() {
             </select>
           )}
         </div>
+
+        {/* CEX data file — shown for dual-source strategies */}
+        {DUAL_SOURCE_STRATEGIES.has(config.strategy) && (
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[10px] text-text-secondary uppercase tracking-wider">
+              CEX Data File <span className="text-accent-amber">(required for this strategy)</span>
+            </label>
+            <select
+              value={config.cex_data_file}
+              onChange={(e) => setConfig((c) => ({ ...c, cex_data_file: e.target.value }))}
+              className="bg-bg-main border border-border rounded px-2 py-1.5 text-xs text-text-primary focus:outline-none focus:border-accent-indigo"
+            >
+              <option value="">None (single-source)</option>
+              {files.map((f) => (
+                <option key={f.name} value={f.name}>
+                  {f.name} ({f.rows.toLocaleString()} rows)
+                </option>
+              ))}
+            </select>
+            {!config.cex_data_file && (
+              <p className="text-[10px] text-accent-amber">
+                This strategy compares DEX and CEX prices. Without a CEX data file, it will detect 0 opportunities.
+              </p>
+            )}
+          </div>
+        )}
 
         <div className="flex flex-col gap-1.5">
           <label className="text-[10px] text-text-secondary uppercase tracking-wider">

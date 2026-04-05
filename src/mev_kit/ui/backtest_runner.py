@@ -95,15 +95,31 @@ class BacktestRunner:
             circuit_breaker_enabled=False,
         )
 
-        # Auto-detect source type from the Parquet file schema
+        # Build adapters — support single file or dual file (DEX + CEX)
+        adapters = []
         source_type = detect_source_type(data_path)
         logger.info(
             "backtest_runner.source_type_detected",
             data_path=data_path,
             source_type=source_type,
         )
+        adapters.append(ParquetReplayAdapter({"path": data_path, "source_type": source_type}))
 
-        adapter = ParquetReplayAdapter({"path": data_path, "source_type": source_type})
+        # If a second data file is provided (for dual-source strategies like CEX-DEX arb)
+        cex_data = config.get("cex_data_file", "")
+        if cex_data and "/" not in cex_data:
+            # Prepend data dir for bare filenames
+            data_dir = Path(data_path).parent
+            cex_data = str(data_dir / cex_data)
+        if cex_data:
+            cex_source = detect_source_type(cex_data)
+            logger.info("backtest_runner.cex_source_detected", path=cex_data, source_type=cex_source)
+            # Tag CEX replay data as BINANCE_WS so the detector treats it as CEX prices
+            adapters.append(ParquetReplayAdapter({
+                "path": cex_data,
+                "source_type": cex_source,
+                "source_override": "binance_ws",
+            }))
         detector = _load_detector(
             config.get("strategy", "price_momentum"),
             {
@@ -118,7 +134,7 @@ class BacktestRunner:
 
         self._pipeline = Pipeline(
             config=pipeline_config,
-            adapters=[adapter],
+            adapters=adapters,
             detector=detector,
             simulator=simulator,
             sink=self._sink,
