@@ -34,6 +34,14 @@ interface FetchBinanceForm {
   use_us: boolean;
 }
 
+interface FetchBirdeyeForm {
+  base_address: string;
+  quote_address: string;
+  interval: string;
+  days: number;
+  pair_label: string;
+}
+
 interface FetchJob {
   status: "running" | "completed" | "error";
   progress: number;
@@ -63,6 +71,14 @@ const BINANCE_PRESETS = [
   { label: "RAY/USDT", symbol: "RAYUSDT" },
 ];
 
+const BIRDEYE_TOKEN_PRESETS = [
+  { label: "SOL/USDC", base: "So11111111111111111111111111111111111111112", quote: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v" },
+  { label: "SOL/USDT", base: "So11111111111111111111111111111111111111112", quote: "Es9vMFrzaCERmKfreVDyFe3GHMC3dYTzJ3tEX2s8VdDg" },
+  { label: "RAY/USDC", base: "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R", quote: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v" },
+  { label: "BONK/SOL", base: "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263", quote: "So11111111111111111111111111111111111111112" },
+  { label: "JTO/USDC", base: "jtojtomepa8beP8AuQc6eXt5FriJwfFwwn2LwDeFkt", quote: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v" },
+];
+
 export default function Data() {
   const [files, setFiles] = useState<DataFile[]>([]);
   const [loading, setLoading] = useState(false);
@@ -73,6 +89,7 @@ export default function Data() {
   const [deleting, setDeleting] = useState(false);
   const [fetchingHist, setFetchingHist] = useState(false);
   const [fetchingBinance, setFetchingBinance] = useState(false);
+  const [fetchingBirdeye, setFetchingBirdeye] = useState(false);
   const [histForm, setHistForm] = useState<FetchHistoricalForm>({
     pool_address: POOL_PRESETS[0].address,
     interval: "5s",
@@ -83,6 +100,13 @@ export default function Data() {
     interval: "1m",
     days: 7,
     use_us: false,
+  });
+  const [birdeyeForm, setBirdeyeForm] = useState<FetchBirdeyeForm>({
+    base_address: BIRDEYE_TOKEN_PRESETS[0].base,
+    quote_address: BIRDEYE_TOKEN_PRESETS[0].quote,
+    interval: "15m",
+    days: 7,
+    pair_label: BIRDEYE_TOKEN_PRESETS[0].label,
   });
   const [fetchJobs, setFetchJobs] = useState<Record<string, FetchJob>>({});
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -218,6 +242,33 @@ export default function Data() {
     }
   }
 
+  async function handleFetchBirdeye() {
+    if (!birdeyeForm.base_address.trim() || !birdeyeForm.quote_address.trim()) {
+      toast("Enter base and quote addresses", "warning");
+      return;
+    }
+    setFetchingBirdeye(true);
+    try {
+      const result = await post<{ status: string; job_id?: string; error?: string }>(
+        "/api/data/fetch/birdeye",
+        birdeyeForm
+      );
+      if (result.status === "error") {
+        toast(result.error ?? "Fetch failed", "error");
+      } else {
+        toast("Birdeye fetch started", "success");
+        fetchJobStatus();
+        if (!pollRef.current) {
+          pollRef.current = setInterval(fetchJobStatus, 2000);
+        }
+      }
+    } catch {
+      toast("Failed to start Birdeye fetch", "error");
+    } finally {
+      setFetchingBirdeye(false);
+    }
+  }
+
   const previewColumns = previewData
     ? previewData.columns.map((c) => ({ key: c, label: c }))
     : [];
@@ -310,7 +361,7 @@ export default function Data() {
         )}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {/* Fetch Historical (Raydium) */}
         <div className="bg-bg-panel border border-border rounded p-4 flex flex-col gap-3">
           <h2 className="text-[10px] text-text-secondary uppercase tracking-wider font-semibold">
@@ -468,6 +519,97 @@ export default function Data() {
             className="flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs bg-accent-amber/20 border border-accent-amber/50 text-accent-amber rounded hover:bg-accent-amber/30 disabled:opacity-40 transition-colors"
           >
             {fetchingBinance ? "Fetching…" : "Fetch Binance Data"}
+          </button>
+        </div>
+
+        {/* Fetch Birdeye DEX OHLCV */}
+        <div className="bg-bg-panel border border-border rounded p-4 flex flex-col gap-3">
+          <h2 className="text-[10px] text-text-secondary uppercase tracking-wider font-semibold">
+            Fetch Birdeye DEX OHLCV
+          </h2>
+          <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] text-text-secondary">Pair Preset</label>
+              <select
+                value={birdeyeForm.pair_label}
+                onChange={(e) => {
+                  const preset = BIRDEYE_TOKEN_PRESETS.find((p) => p.label === e.target.value);
+                  if (preset) {
+                    setBirdeyeForm((f) => ({
+                      ...f,
+                      pair_label: preset.label,
+                      base_address: preset.base,
+                      quote_address: preset.quote,
+                    }));
+                  } else {
+                    setBirdeyeForm((f) => ({ ...f, pair_label: e.target.value }));
+                  }
+                }}
+                className={inputCls}
+              >
+                {BIRDEYE_TOKEN_PRESETS.map((p) => (
+                  <option key={p.label} value={p.label}>{p.label}</option>
+                ))}
+                <option value="">Custom…</option>
+              </select>
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] text-text-secondary">Base Address</label>
+              <input
+                type="text"
+                value={birdeyeForm.base_address}
+                onChange={(e) => setBirdeyeForm((f) => ({ ...f, base_address: e.target.value }))}
+                placeholder="e.g. So11111111111111111111111111111111111111112"
+                className={inputCls}
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] text-text-secondary">Quote Address</label>
+              <input
+                type="text"
+                value={birdeyeForm.quote_address}
+                onChange={(e) => setBirdeyeForm((f) => ({ ...f, quote_address: e.target.value }))}
+                placeholder="e.g. EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+                className={inputCls}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] text-text-secondary">Interval</label>
+                <select
+                  value={birdeyeForm.interval}
+                  onChange={(e) => setBirdeyeForm((f) => ({ ...f, interval: e.target.value }))}
+                  className={inputCls}
+                >
+                  {["1m", "5m", "15m", "1H", "4H", "1D"].map((i) => (
+                    <option key={i} value={i}>{i}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] text-text-secondary">Days</label>
+                <input
+                  type="number"
+                  value={birdeyeForm.days}
+                  onChange={(e) =>
+                    setBirdeyeForm((f) => ({ ...f, days: Number(e.target.value) }))
+                  }
+                  min={1}
+                  max={30}
+                  className={inputCls}
+                />
+              </div>
+            </div>
+            <div className="text-[10px] text-accent-green border border-accent-green/30 rounded px-2 py-1.5 bg-accent-green/5">
+              Historical on-chain prices from Birdeye (free tier: 750 calls/month)
+            </div>
+          </div>
+          <button
+            onClick={handleFetchBirdeye}
+            disabled={fetchingBirdeye}
+            className="flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs bg-accent-green/20 border border-accent-green/50 text-accent-green rounded hover:bg-accent-green/30 disabled:opacity-40 transition-colors"
+          >
+            {fetchingBirdeye ? "Fetching…" : "Fetch DEX History"}
           </button>
         </div>
       </div>

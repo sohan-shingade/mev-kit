@@ -41,6 +41,7 @@ class ConfigManager:
         keys = [
             "HELIUS_API_KEY", "HELIUS_RPC_URL", "SOLANA_RPC_URL",
             "JITO_BLOCK_ENGINE_URL", "WALLET_KEYPAIR_PATH", "BINANCE_WS_URL",
+            "BIRDEYE_API_KEY",
         ]
         return {k: bool(os.environ.get(k)) for k in keys}
 

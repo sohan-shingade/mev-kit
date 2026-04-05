@@ -21,6 +21,15 @@ router = APIRouter()
 # Background fetch job tracking
 _fetch_jobs: dict[str, dict[str, Any]] = {}
 
+# Token presets for Birdeye DEX price fetch
+BIRDEYE_TOKEN_PRESETS = [
+    {"label": "SOL/USDC", "base": "So11111111111111111111111111111111111111112", "quote": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"},
+    {"label": "SOL/USDT", "base": "So11111111111111111111111111111111111111112", "quote": "Es9vMFrzaCERmKfreVDyFe3GHMC3dYTzJ3tEX2s8VdDg"},
+    {"label": "RAY/USDC", "base": "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R", "quote": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"},
+    {"label": "BONK/SOL", "base": "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263", "quote": "So11111111111111111111111111111111111111112"},
+    {"label": "JTO/USDC", "base": "jtojtomepa8beP8AuQc6eXt5FriJwfFwwn2LwDeFkt", "quote": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"},
+]
+
 
 @router.get("/files")
 async def list_files(request: Request) -> list[dict[str, Any]]:
@@ -106,6 +115,141 @@ async def fetch_historical(request: Request, body: dict[str, Any]) -> dict[str, 
 async def fetch_status() -> dict[str, Any]:
     """Get status of all fetch jobs."""
     return _fetch_jobs
+
+
+@router.post("/fetch/birdeye")
+async def fetch_birdeye(request: Request, body: dict[str, Any]) -> dict[str, Any]:
+    """Fetch historical DEX OHLCV data from Birdeye API (requires BIRDEYE_API_KEY)."""
+    import os
+
+    base_address = body.get("base_address", "")
+    quote_address = body.get("quote_address", "")
+    interval = body.get("interval", "15m")
+    days = int(body.get("days", 7))
+    pair_label = body.get("pair_label", "")
+    data_dir = request.app.state.data_dir
+
+    api_key = os.environ.get("BIRDEYE_API_KEY", "")
+    if not api_key:
+        return {"status": "error", "error": "BIRDEYE_API_KEY not set"}
+
+    if not base_address or not quote_address:
+        return {"status": "error", "error": "base_address and quote_address are required"}
+
+    job_id = f"birdeye_{datetime.now(UTC).strftime('%H%M%S')}"
+    _fetch_jobs[job_id] = {"status": "running", "progress": 0, "total": 0}
+
+    asyncio.create_task(
+        _run_birdeye_fetch(job_id, base_address, quote_address, interval, days, pair_label, data_dir, api_key)
+    )
+    return {"status": "started", "job_id": job_id}
+
+
+async def _run_birdeye_fetch(
+    job_id: str,
+    base_address: str,
+    quote_address: str,
+    interval: str,
+    days: int,
+    pair_label: str,
+    data_dir: str,
+    api_key: str,
+) -> None:
+    """Background task: fetch Birdeye DEX OHLCV data and save as Parquet."""
+    url = "https://public-api.birdeye.so/defi/ohlcv/base_quote"
+    headers = {
+        "X-API-KEY": api_key,
+        "x-chain": "solana",
+    }
+    max_records_per_page = 1000
+
+    # Birdeye interval string → seconds for pagination
+    interval_seconds_map = {
+        "1m": 60,
+        "5m": 300,
+        "15m": 900,
+        "1H": 3600,
+        "4H": 14400,
+        "1D": 86400,
+    }
+    secs = interval_seconds_map.get(interval, 900)
+
+    now_ts = int(datetime.now(UTC).timestamp())
+    time_from = now_ts - (days * 86400)
+    time_to = now_ts
+
+    total_expected = (days * 86400) // secs
+    _fetch_jobs[job_id]["total"] = total_expected
+
+    all_rows: list[dict] = []
+
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            current_from = time_from
+            while current_from < time_to:
+                params: dict[str, Any] = {
+                    "base_address": base_address,
+                    "quote_address": quote_address,
+                    "type": interval,
+                    "time_from": current_from,
+                    "time_to": time_to,
+                }
+
+                resp = await client.get(url, headers=headers, params=params)
+                resp.raise_for_status()
+                data = resp.json()
+
+                items = data.get("data", {}).get("items", []) if isinstance(data.get("data"), dict) else []
+                if not items:
+                    break
+
+                for item in items:
+                    ts_val = item.get("unixTime") or item.get("time") or 0
+                    close_price = float(item.get("c", item.get("close", 0)))
+                    all_rows.append({
+                        "pool_address": "birdeye_aggregated",
+                        "dex": "raydium",
+                        "base_mint": base_address,
+                        "quote_mint": quote_address,
+                        "base_reserve": 0.0,
+                        "quote_reserve": 0.0,
+                        "price": close_price,
+                        "fee_bps": 30,
+                        "slot": 0,
+                        "timestamp": datetime.fromtimestamp(ts_val, tz=UTC),
+                    })
+
+                _fetch_jobs[job_id]["progress"] = len(all_rows)
+                _fetch_jobs[job_id]["total"] = max(total_expected, len(all_rows))
+
+                if len(items) < max_records_per_page:
+                    break
+
+                # Advance time_from past the last record to paginate
+                last_ts = items[-1].get("unixTime") or items[-1].get("time") or current_from
+                current_from = int(last_ts) + secs
+
+                # Free tier: 1 request/second
+                await asyncio.sleep(1.0)
+
+        if all_rows:
+            df = pl.DataFrame(all_rows)
+            Path(data_dir).mkdir(parents=True, exist_ok=True)
+            ts_str = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
+            label_part = pair_label.replace("/", "_").lower() if pair_label else "pair"
+            filename = f"birdeye_{label_part}_{interval}_{ts_str}.parquet"
+            df.write_parquet(str(Path(data_dir) / filename))
+            _fetch_jobs[job_id]["status"] = "completed"
+            _fetch_jobs[job_id]["file"] = filename
+            _fetch_jobs[job_id]["rows"] = len(all_rows)
+        else:
+            _fetch_jobs[job_id]["status"] = "completed"
+            _fetch_jobs[job_id]["rows"] = 0
+
+    except Exception as exc:
+        logger.warning("fetch_birdeye.error", error=str(exc))
+        _fetch_jobs[job_id]["status"] = "error"
+        _fetch_jobs[job_id]["error"] = str(exc)
 
 
 async def _run_binance_fetch(
