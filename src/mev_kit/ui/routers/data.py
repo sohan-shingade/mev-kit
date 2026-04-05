@@ -91,14 +91,10 @@ async def fetch_historical(request: Request, body: dict[str, Any]) -> dict[str, 
     job_id = f"helius_{datetime.now(UTC).strftime('%H%M%S')}"
     _fetch_jobs[job_id] = {"status": "running", "progress": 0}
 
-    try:
-        interval = int(interval_str.rstrip("mhds"))
-    except ValueError:
-        interval = 5
-    try:
-        duration = int(duration_str.rstrip("mhds"))
-    except ValueError:
-        duration = 60
+    # Parse interval string (e.g., "1m", "5m", "1h") to seconds
+    interval = _parse_duration_to_seconds(interval_str, default=60)
+    # Parse duration string (e.g., "1d", "7d", "1h") to minutes
+    duration = _parse_duration_to_minutes(duration_str, default=60)
 
     asyncio.create_task(
         _run_helius_fetch(job_id, pool_address, interval, duration, data_dir, api_key)
@@ -191,6 +187,38 @@ async def _run_binance_fetch(
         logger.warning("fetch_binance.error", error=str(exc))
         _fetch_jobs[job_id]["status"] = "error"
         _fetch_jobs[job_id]["error"] = str(exc)
+
+
+def _parse_duration_to_seconds(s: str, default: int = 60) -> int:
+    """Parse '1m', '5m', '1h', '1d', '30' into seconds."""
+    s = s.strip().lower()
+    try:
+        if s.endswith("s"):
+            return int(s[:-1])
+        if s.endswith("m"):
+            return int(s[:-1]) * 60
+        if s.endswith("h"):
+            return int(s[:-1]) * 3600
+        if s.endswith("d"):
+            return int(s[:-1]) * 86400
+        return int(s)  # assume seconds if no suffix
+    except ValueError:
+        return default
+
+
+def _parse_duration_to_minutes(s: str, default: int = 60) -> int:
+    """Parse '1d', '7d', '1h', '60' into minutes."""
+    s = s.strip().lower()
+    try:
+        if s.endswith("m"):
+            return int(s[:-1])
+        if s.endswith("h"):
+            return int(s[:-1]) * 60
+        if s.endswith("d"):
+            return int(s[:-1]) * 1440
+        return int(s)  # assume minutes if no suffix
+    except ValueError:
+        return default
 
 
 async def _run_helius_fetch(
