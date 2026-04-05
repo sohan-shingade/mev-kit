@@ -15,15 +15,32 @@
 }
 
 body {
-  background-color: var(--color-bg-main);
+  background-color: #0f0f1e;
   color: var(--color-text-primary);
   font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
   margin: 0;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 .font-mono {
-  font-family: "SF Mono", Monaco, "Cascadia Code", monospace;
+  font-family: "JetBrains Mono", "SF Mono", Monaco, "Cascadia Code", monospace;
 }
+
+/* Scrollbar styling for the terminal feel */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #2a2a4a; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #3a3a5a; }
+
+/* Keyboard shortcuts badge */
+kbd {
+  font-family: "JetBrains Mono", "SF Mono", monospace;
+  font-size: 9px;
+}
+
+/* Tabular numbers for data alignment */
+.tabular-nums { font-variant-numeric: tabular-nums; }
 
 /* ── Prose styles for rendered markdown guides ── */
 
