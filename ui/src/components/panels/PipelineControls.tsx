@@ -31,10 +31,11 @@ export default function PipelineControls({ state, mode }: Props) {
         setProfiles(["free", "pro"]);
       });
 
-    get<string[]>("/api/strategies/files")
+    get<{ name: string; path: string; type: string }[]>("/api/strategies/files")
       .then((data) => {
-        setStrategies(data);
-        if (data.length > 0) setSelectedStrategy(data[0]);
+        const names = data.map((s) => s.path.replace(".py", "").replace("examples/", ""));
+        setStrategies(names);
+        if (names.length > 0) setSelectedStrategy(names[0]);
       })
       .catch(() => {
         setStrategies(["cex_dex_arb"]);
