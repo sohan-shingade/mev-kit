@@ -145,6 +145,41 @@ async def fetch_birdeye(request: Request, body: dict[str, Any]) -> dict[str, Any
     return {"status": "started", "job_id": job_id}
 
 
+@router.post("/prepare")
+async def prepare_data(request: Request, body: dict[str, Any]) -> dict[str, Any]:
+    """Merge DEX + CEX data into a time-aligned backtest dataset."""
+    from mev_kit.ui.data_prep import prepare_backtest_data
+
+    dex_file = body.get("dex_file", "")
+    cex_file = body.get("cex_file", "")
+    interval = int(body.get("interval_seconds", 60))
+    lag = body.get("lag", True)
+
+    data_dir = request.app.state.data_dir.rstrip("/")
+
+    # Resolve paths
+    dex_path = f"{data_dir}/{dex_file}" if "/" not in dex_file else dex_file
+    cex_path = f"{data_dir}/{cex_file}" if "/" not in cex_file else cex_file
+
+    # Generate output filename
+    ts = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
+    lag_suffix = "_lagged" if lag else "_raw"
+    output_name = f"backtest_merged{lag_suffix}_{ts}.parquet"
+    output_path = f"{data_dir}/{output_name}"
+
+    try:
+        stats = prepare_backtest_data(
+            dex_path=dex_path,
+            cex_path=cex_path,
+            output_path=output_path,
+            interval_seconds=interval,
+            lag=lag,
+        )
+        return {"status": "completed", **stats}
+    except Exception as exc:
+        return {"status": "error", "error": str(exc)}
+
+
 async def _run_birdeye_fetch(
     job_id: str,
     base_address: str,

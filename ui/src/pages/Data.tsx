@@ -4,7 +4,7 @@ import type { DataFile } from "../api/types";
 import Modal from "../components/common/Modal";
 import DataTable from "../components/common/DataTable";
 import { toast } from "../components/common/Toast";
-import { RefreshCw, Trash2, Eye, Download } from "lucide-react";
+import { RefreshCw, Trash2, Eye, Download, Merge } from "lucide-react";
 
 interface PreviewData {
   columns: string[];
@@ -48,6 +48,28 @@ interface FetchJob {
   total?: number;
   file?: string;
   rows?: number;
+  error?: string;
+}
+
+interface PrepareForm {
+  dex_file: string;
+  cex_file: string;
+  interval_seconds: number;
+  lag: boolean;
+}
+
+interface PrepareResult {
+  status: string;
+  rows?: number;
+  time_range_start?: string;
+  time_range_end?: string;
+  avg_spread_bps?: number;
+  max_spread_bps?: number;
+  data_gaps_pct?: number;
+  lag_applied?: boolean;
+  output_path?: string;
+  dex_price_range?: string;
+  cex_price_range?: string;
   error?: string;
 }
 
@@ -132,6 +154,14 @@ export default function Data() {
   });
   const [fetchJobs, setFetchJobs] = useState<Record<string, FetchJob>>({});
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [prepareForm, setPrepareForm] = useState<PrepareForm>({
+    dex_file: "",
+    cex_file: "",
+    interval_seconds: 60,
+    lag: true,
+  });
+  const [preparing, setPreparing] = useState(false);
+  const [prepareResult, setPrepareResult] = useState<PrepareResult | null>(null);
 
   const fetchFiles = useCallback(async () => {
     setLoading(true);
@@ -290,6 +320,31 @@ export default function Data() {
       setFetchingBirdeye(false);
     }
   }
+
+  async function handlePrepareData() {
+    if (!prepareForm.dex_file || !prepareForm.cex_file) {
+      toast("Select both DEX and CEX data files", "warning");
+      return;
+    }
+    setPreparing(true);
+    setPrepareResult(null);
+    try {
+      const result = await post<PrepareResult>("/api/data/prepare", prepareForm);
+      setPrepareResult(result);
+      if (result.status === "completed" && result.rows && result.rows > 0) {
+        toast(`Merged ${result.rows} rows`, "success");
+        fetchFiles();
+      } else if (result.error) {
+        toast(result.error, "error");
+      }
+    } catch {
+      toast("Failed to prepare data", "error");
+    } finally {
+      setPreparing(false);
+    }
+  }
+
+  const parquetFiles = files.filter((f) => f.name.endsWith(".parquet"));
 
   const previewColumns = previewData
     ? previewData.columns.map((c) => ({ key: c, label: c }))
@@ -691,6 +746,112 @@ export default function Data() {
           </div>
         </div>
       )}
+
+      {/* Prepare Backtest Data */}
+      <div className="bg-bg-panel border border-border rounded p-4 flex flex-col gap-3">
+        <h2 className="text-[10px] text-text-secondary uppercase tracking-wider font-semibold">
+          Prepare Backtest Data
+        </h2>
+        <p className="text-[10px] text-text-secondary leading-relaxed">
+          Merges DEX and CEX data into a single time-aligned dataset. Lagged mode uses the previous
+          candle's price to prevent lookahead bias.
+        </p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="flex flex-col gap-1">
+            <label className="text-[10px] text-text-secondary">DEX Data</label>
+            <select
+              value={prepareForm.dex_file}
+              onChange={(e) => setPrepareForm((f) => ({ ...f, dex_file: e.target.value }))}
+              className={inputCls}
+            >
+              <option value="">Select DEX file...</option>
+              {parquetFiles.map((f) => (
+                <option key={f.name} value={f.name}>{f.name}</option>
+              ))}
+            </select>
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-[10px] text-text-secondary">CEX Data</label>
+            <select
+              value={prepareForm.cex_file}
+              onChange={(e) => setPrepareForm((f) => ({ ...f, cex_file: e.target.value }))}
+              className={inputCls}
+            >
+              <option value="">Select CEX file...</option>
+              {parquetFiles.map((f) => (
+                <option key={f.name} value={f.name}>{f.name}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="flex flex-col gap-1">
+            <label className="text-[10px] text-text-secondary">Interval</label>
+            <select
+              value={prepareForm.interval_seconds}
+              onChange={(e) =>
+                setPrepareForm((f) => ({ ...f, interval_seconds: Number(e.target.value) }))
+              }
+              className={inputCls}
+            >
+              <option value={60}>60s (1m candles)</option>
+              <option value={300}>300s (5m candles)</option>
+              <option value={900}>900s (15m candles)</option>
+              <option value={3600}>3600s (1h candles)</option>
+            </select>
+          </div>
+          <div className="flex items-end pb-0.5">
+            <label className="flex items-center gap-1.5 text-xs text-text-secondary cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={prepareForm.lag}
+                onChange={(e) => setPrepareForm((f) => ({ ...f, lag: e.target.checked }))}
+                className="accent-accent-indigo"
+              />
+              Apply lag (prevent lookahead bias)
+            </label>
+          </div>
+        </div>
+        <button
+          onClick={handlePrepareData}
+          disabled={preparing || !prepareForm.dex_file || !prepareForm.cex_file}
+          className="flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs bg-accent-indigo/20 border border-accent-indigo/50 text-accent-indigo rounded hover:bg-accent-indigo/30 disabled:opacity-40 transition-colors"
+        >
+          <Merge size={11} />
+          {preparing ? "Merging..." : "Merge & Prepare"}
+        </button>
+        {prepareResult && prepareResult.status === "completed" && prepareResult.rows && prepareResult.rows > 0 && (
+          <div className="bg-bg-main border border-border rounded p-3 flex flex-col gap-1.5 text-[10px]">
+            <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+              <span className="text-text-secondary">Rows</span>
+              <span className="text-text-primary font-mono">{prepareResult.rows?.toLocaleString()}</span>
+              <span className="text-text-secondary">Time range</span>
+              <span className="text-text-primary font-mono text-[9px]">
+                {prepareResult.time_range_start} to {prepareResult.time_range_end}
+              </span>
+              <span className="text-text-secondary">DEX price range</span>
+              <span className="text-text-primary font-mono">{prepareResult.dex_price_range}</span>
+              <span className="text-text-secondary">CEX price range</span>
+              <span className="text-text-primary font-mono">{prepareResult.cex_price_range}</span>
+              <span className="text-text-secondary">Avg spread</span>
+              <span className="text-text-primary font-mono">{prepareResult.avg_spread_bps} bps</span>
+              <span className="text-text-secondary">Max spread</span>
+              <span className="text-text-primary font-mono">{prepareResult.max_spread_bps} bps</span>
+              <span className="text-text-secondary">Data gaps</span>
+              <span className="text-text-primary font-mono">{prepareResult.data_gaps_pct}%</span>
+              <span className="text-text-secondary">Lag applied</span>
+              <span className={`font-mono ${prepareResult.lag_applied ? "text-accent-green" : "text-accent-amber"}`}>
+                {prepareResult.lag_applied ? "Yes" : "No"}
+              </span>
+            </div>
+          </div>
+        )}
+        {prepareResult && prepareResult.status === "error" && (
+          <div className="text-[10px] text-accent-red border border-accent-red/30 rounded px-2 py-1.5 bg-accent-red/5">
+            {prepareResult.error}
+          </div>
+        )}
+      </div>
 
       {/* Preview Modal */}
       <Modal

@@ -12,6 +12,7 @@ import aiosqlite
 import polars as pl
 import structlog
 
+from mev_kit.adapters.ingest.merged_replay import MergedReplayAdapter
 from mev_kit.adapters.ingest.parquet_replay import ParquetReplayAdapter
 from mev_kit.adapters.simulators.base import PassthroughSimulator
 from mev_kit.adapters.sinks.paper_trade import BacktestSink
@@ -43,6 +44,10 @@ def detect_source_type(data_path: str) -> str:
         columns = set(schema.keys()) if isinstance(schema, dict) else set(schema)
     except Exception:
         return "pool"
+
+    # Merged backtest data (has both dex_price and cex_price)
+    if "dex_price" in columns and "cex_price" in columns:
+        return "merged"
 
     # OHLCV data (Binance klines)
     ohlcv_cols = {"open", "high", "low", "close"}
@@ -95,7 +100,7 @@ class BacktestRunner:
             circuit_breaker_enabled=False,
         )
 
-        # Build adapters — support single file or dual file (DEX + CEX)
+        # Build adapters — support single file, dual file, or merged
         adapters = []
         source_type = detect_source_type(data_path)
         logger.info(
@@ -103,23 +108,30 @@ class BacktestRunner:
             data_path=data_path,
             source_type=source_type,
         )
-        adapters.append(ParquetReplayAdapter({"path": data_path, "source_type": source_type}))
 
-        # If a second data file is provided (for dual-source strategies like CEX-DEX arb)
-        cex_data = config.get("cex_data_file", "")
-        if cex_data and "/" not in cex_data:
-            # Prepend data dir for bare filenames
-            data_dir = Path(data_path).parent
-            cex_data = str(data_dir / cex_data)
-        if cex_data:
-            cex_source = detect_source_type(cex_data)
-            logger.info("backtest_runner.cex_source_detected", path=cex_data, source_type=cex_source)
-            # Tag CEX replay data as BINANCE_WS so the detector treats it as CEX prices
-            adapters.append(ParquetReplayAdapter({
-                "path": cex_data,
-                "source_type": cex_source,
-                "source_override": "binance_ws",
-            }))
+        if source_type == "merged":
+            # Merged dataset — single adapter emits both DEX and CEX in time order
+            adapters.append(MergedReplayAdapter({"path": data_path}))
+            logger.info("backtest_runner.using_merged_adapter", data_path=data_path)
+        else:
+            # Standard single-source replay
+            adapters.append(ParquetReplayAdapter({"path": data_path, "source_type": source_type}))
+
+            # If a second data file is provided (for dual-source strategies like CEX-DEX arb)
+            cex_data = config.get("cex_data_file", "")
+            if cex_data and "/" not in cex_data:
+                # Prepend data dir for bare filenames
+                data_dir = Path(data_path).parent
+                cex_data = str(data_dir / cex_data)
+            if cex_data:
+                cex_source = detect_source_type(cex_data)
+                logger.info("backtest_runner.cex_source_detected", path=cex_data, source_type=cex_source)
+                # Tag CEX replay data as BINANCE_WS so the detector treats it as CEX prices
+                adapters.append(ParquetReplayAdapter({
+                    "path": cex_data,
+                    "source_type": cex_source,
+                    "source_override": "binance_ws",
+                }))
         detector = _load_detector(
             config.get("strategy", "price_momentum"),
             {
