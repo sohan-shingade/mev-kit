@@ -105,18 +105,27 @@ async def get_strategy_info(strategy: str) -> dict[str, Any]:
         hyper = detector.hyperparameters() if hasattr(detector, "hyperparameters") else {}
         warmup = detector.warmup_updates if hasattr(detector, "warmup_updates") else 0
 
-        # Categorize sources
+        # Determine if strategy needs dual-source (CEX + DEX simultaneously)
+        # Check for CEX_SOURCES / DEX_SOURCES class attributes — these indicate
+        # the detector explicitly separates CEX and DEX data and needs both
+        has_cex_attr = hasattr(detector, "CEX_SOURCES") and bool(getattr(detector, "CEX_SOURCES", set()))
+        has_dex_attr = hasattr(detector, "DEX_SOURCES") and bool(getattr(detector, "DEX_SOURCES", set()))
+        needs_dual = has_cex_attr and has_dex_attr
+
+        # If not dual-source, it accepts any of its listed sources
         cex_sources = {"binance_ws"}
         dex_sources = {"helius_ws", "yellowstone_grpc", "geyser", "parquet_replay", "jupiter_api"}
-        needs_cex = bool(set(sources) & cex_sources)
-        needs_dex = bool(set(sources) & dex_sources)
+        has_cex = bool(set(sources) & cex_sources)
+        has_dex = bool(set(sources) & dex_sources)
 
         return {
             "name": detector.name,
             "required_sources": sources,
-            "needs_cex": needs_cex,
-            "needs_dex": needs_dex,
-            "needs_dual_source": needs_cex and needs_dex,
+            "needs_cex": has_cex and needs_dual,
+            "needs_dex": has_dex and needs_dual,
+            "needs_dual_source": needs_dual,
+            "accepts_cex": has_cex,
+            "accepts_dex": has_dex,
             "hyperparameters": {k: {"min": v[0], "max": v[1], "step": v[2]} for k, v in hyper.items()},
             "warmup_updates": warmup,
         }
