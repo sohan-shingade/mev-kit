@@ -9,19 +9,18 @@ import {
   Code2,
   ChevronLeft,
   ChevronRight,
-  Zap,
 } from "lucide-react";
 import { useState } from "react";
 import StatusBar from "./StatusBar";
 
 const NAV_ITEMS = [
-  { to: "/", icon: LayoutDashboard, label: "Dashboard", shortcut: "1" },
-  { to: "/strategies", icon: Code2, label: "Strategies", shortcut: "2" },
-  { to: "/backtest", icon: Play, label: "Backtest", shortcut: "3" },
-  { to: "/config", icon: Settings, label: "Config", shortcut: "4" },
-  { to: "/analysis", icon: BarChart3, label: "Analysis", shortcut: "5" },
-  { to: "/data", icon: Database, label: "Data", shortcut: "6" },
-  { to: "/learn", icon: BookOpen, label: "Learn", shortcut: "7" },
+  { to: "/", icon: LayoutDashboard, label: "dashboard", shortcut: "1" },
+  { to: "/strategies", icon: Code2, label: "strategies", shortcut: "2" },
+  { to: "/backtest", icon: Play, label: "backtest", shortcut: "3" },
+  { to: "/config", icon: Settings, label: "config", shortcut: "4" },
+  { to: "/analysis", icon: BarChart3, label: "analysis", shortcut: "5" },
+  { to: "/data", icon: Database, label: "data", shortcut: "6" },
+  { to: "/learn", icon: BookOpen, label: "learn", shortcut: "7" },
 ];
 
 export default function Layout() {
@@ -32,85 +31,87 @@ export default function Layout() {
   );
 
   return (
-    <div className="flex flex-col h-screen overflow-hidden bg-[#090b10]">
-      {/* ── Top bar ── */}
-      <div className="h-[32px] bg-[#070910] border-b border-[#141720] flex items-center shrink-0 select-none">
-        {/* Brand */}
-        <div className="flex items-center gap-2 px-3 border-r border-[#141720] h-full">
-          <Zap size={13} className="text-accent-indigo" />
-          <span className="text-[11px] font-bold tracking-wider text-text-primary">
-            MEV-KIT
+    <div className="flex flex-col h-screen overflow-hidden bg-[#07070c]">
+      {/* ── Top bar: terminal prompt style ── */}
+      <div className="h-[28px] bg-[#07070c] border-b border-[#1c1a28] flex items-center shrink-0 select-none">
+        {/* Brand — Solana gradient hint */}
+        <div className="flex items-center gap-1.5 pl-3 pr-4 h-full">
+          <span className="text-[11px] font-bold tracking-[0.15em] text-[#9945ff]">
+            mev
+          </span>
+          <span className="text-[11px] font-bold tracking-[0.15em] text-[#14f195]">
+            kit
           </span>
         </div>
 
-        {/* Breadcrumb */}
-        <div className="flex items-center gap-1 px-3 text-[10px]">
-          <span className="text-[#3a4050]">/</span>
-          <span className="text-text-secondary font-medium">
-            {currentPage?.label ?? "Dashboard"}
+        {/* Prompt-style breadcrumb */}
+        <div className="flex items-center gap-0 text-[11px]">
+          <span className="text-[#14f195]">~</span>
+          <span className="text-[#56516a]">/</span>
+          <span className="text-[#c4b5fd]">
+            {currentPage?.label ?? "dashboard"}
           </span>
+          <span className="text-[#9945ff] ml-0.5 animate-pulse">▊</span>
         </div>
 
-        {/* Spacer */}
         <div className="flex-1" />
 
-        {/* Keyboard hints */}
-        <div className="hidden md:flex items-center gap-3 px-3 text-[9px] text-[#2e3340]">
+        {/* Shortcuts */}
+        <div className="hidden md:flex items-center gap-2 pr-3 text-[9px] text-[#2a2838]">
           <span>
-            <kbd className="px-1 py-0.5 bg-[#141720] rounded text-[#4a5060] text-[8px]">
-              ⌘K
-            </kbd>{" "}
-            commands
+            <kbd className="px-1 py-0.5 border border-[#1c1a28] rounded-sm text-[#56516a]">⌘K</kbd>
           </span>
         </div>
       </div>
 
-      {/* ── Main body ── */}
+      {/* ── Body ── */}
       <div className="flex flex-1 min-h-0">
         {/* ── Sidebar ── */}
         <nav
           className={`${
-            collapsed ? "w-[44px]" : "w-[140px]"
-          } bg-[#070910] border-r border-[#141720] flex flex-col shrink-0 transition-all duration-150`}
+            collapsed ? "w-[40px]" : "w-[136px]"
+          } bg-[#07070c] border-r border-[#1c1a28] flex flex-col shrink-0 transition-all duration-100`}
         >
-          {/* Nav items */}
-          <div className="flex-1 py-2 flex flex-col gap-0.5 px-1.5">
+          <div className="flex-1 py-1.5 flex flex-col gap-px px-1">
             {NAV_ITEMS.map(({ to, icon: Icon, label, shortcut }) => (
               <NavLink
                 key={to}
                 to={to}
                 end={to === "/"}
                 className={({ isActive }) => {
-                  const base =
-                    "flex items-center gap-2 rounded h-[30px] transition-all duration-100 group relative";
+                  const base = "flex items-center gap-2 h-[28px] transition-colors duration-75 group";
                   const active = isActive
-                    ? "bg-accent-indigo/10 text-accent-indigo border-l-2 border-accent-indigo pl-[6px]"
-                    : "text-[#4a5060] hover:text-text-secondary hover:bg-[#10131a] border-l-2 border-transparent pl-[6px]";
-                  const pad = collapsed ? "justify-center px-0" : "px-1.5";
+                    ? "text-[#14f195] bg-[#14f195]/[0.04]"
+                    : "text-[#3d3856] hover:text-[#8b83a6] hover:bg-[#0e0e16]";
+                  const pad = collapsed ? "justify-center px-0" : "px-2";
                   return `${base} ${active} ${pad}`;
                 }}
               >
-                <Icon size={15} className="shrink-0" />
-                {!collapsed && (
-                  <span className="text-[11px] font-medium truncate">
-                    {label}
-                  </span>
-                )}
-                {!collapsed && (
-                  <span className="ml-auto text-[9px] text-[#2e3340] font-mono">
-                    {shortcut}
-                  </span>
+                {({ isActive }) => (
+                  <>
+                    {isActive && !collapsed && (
+                      <span className="text-[9px] text-[#9945ff] mr-px">{">"}</span>
+                    )}
+                    <Icon size={14} className="shrink-0" />
+                    {!collapsed && (
+                      <span className="text-[10px] truncate">{label}</span>
+                    )}
+                    {!collapsed && (
+                      <span className="ml-auto text-[9px] text-[#2a2838] font-mono">
+                        {shortcut}
+                      </span>
+                    )}
+                  </>
                 )}
               </NavLink>
             ))}
           </div>
 
-          {/* Collapse toggle */}
           <button
             onClick={() => setCollapsed(!collapsed)}
-            className="h-[28px] flex items-center justify-center border-t border-[#141720] text-[#2e3340] hover:text-text-secondary transition-colors"
+            className="h-[24px] flex items-center justify-center border-t border-[#1c1a28] text-[#2a2838] hover:text-[#56516a] transition-colors duration-75"
           >
-            {collapsed ? <ChevronRight size={12} /> : <ChevronLeft size={12} />}
+            {collapsed ? <ChevronRight size={11} /> : <ChevronLeft size={11} />}
           </button>
         </nav>
 
