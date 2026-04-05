@@ -111,7 +111,9 @@ class BacktestRunner:
 
         if source_type == "merged":
             # Merged dataset — single adapter emits both DEX and CEX in time order
-            adapters.append(MergedReplayAdapter({"path": data_path}))
+            # use_sources filters which sources to emit (empty = all)
+            use_sources = config.get("use_sources", [])
+            adapters.append(MergedReplayAdapter({"path": data_path, "use_sources": use_sources}))
             logger.info("backtest_runner.using_merged_adapter", data_path=data_path)
         else:
             # Standard single-source replay

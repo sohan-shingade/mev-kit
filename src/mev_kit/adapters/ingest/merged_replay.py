@@ -30,6 +30,8 @@ class MergedReplayAdapter(IngestAdapter):
     def __init__(self, config: dict) -> None:
         super().__init__(config)
         self.path = config.get("path", "")
+        # Filter which sources to emit: {"dex", "cex"} or empty = all
+        self.use_sources: set[str] = set(config.get("use_sources", []))
         self._df: pl.DataFrame | None = None
 
     async def connect(self) -> None:
@@ -58,40 +60,45 @@ class MergedReplayAdapter(IngestAdapter):
             dex_price = float(row.get("dex_price", 0))
             cex_price = float(row.get("cex_price", 0))
 
-            if dex_price <= 0 or cex_price <= 0:
+            if dex_price <= 0 and cex_price <= 0:
                 continue
 
-            # Emit DEX update first
-            pool = PoolState(
-                pool_address=str(row.get("pool_address", "merged_backtest")),
-                dex=str(row.get("dex", "aggregated")),
-                base_mint=str(
-                    row.get(
-                        "base_mint",
-                        "So11111111111111111111111111111111111111112",
-                    )
-                ),
-                quote_mint=str(
-                    row.get(
-                        "quote_mint",
-                        "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
-                    )
-                ),
-                base_reserve=float(row.get("base_reserve", 0)),
-                quote_reserve=float(row.get("quote_reserve", 0)),
-                price=dex_price,
-                fee_bps=int(row.get("fee_bps", 30)),
-                slot=int(row.get("slot", 0)),
-                timestamp=ts,
-            )
-            yield StateUpdate(source=Source.PARQUET_REPLAY, pool=pool)
+            emit_dex = (not self.use_sources or "dex" in self.use_sources) and dex_price > 0
+            emit_cex = (not self.use_sources or "cex" in self.use_sources) and cex_price > 0
 
-            # Then emit CEX update
-            price = PriceUpdate(
-                symbol=str(row.get("symbol", "SOL/USDC")),
-                price=cex_price,
-                volume=None,
-                source=Source.BINANCE_WS,
-                timestamp=ts,
+            # Emit DEX update
+            if emit_dex:
+                pool = PoolState(
+                    pool_address=str(row.get("pool_address", "merged_backtest")),
+                    dex=str(row.get("dex", "aggregated")),
+                    base_mint=str(
+                        row.get(
+                            "base_mint",
+                            "So11111111111111111111111111111111111111112",
+                        )
+                    ),
+                    quote_mint=str(
+                        row.get(
+                            "quote_mint",
+                            "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+                        )
+                    ),
+                    base_reserve=float(row.get("base_reserve", 0)),
+                    quote_reserve=float(row.get("quote_reserve", 0)),
+                    price=dex_price,
+                    fee_bps=int(row.get("fee_bps", 30)),
+                    slot=int(row.get("slot", 0)),
+                    timestamp=ts,
+                )
+                yield StateUpdate(source=Source.PARQUET_REPLAY, pool=pool)
+
+            # Emit CEX update
+            if emit_cex:
+                price = PriceUpdate(
+                    symbol=str(row.get("symbol", "SOL/USDC")),
+                    price=cex_price,
+                    volume=None,
+                    source=Source.BINANCE_WS,
+                    timestamp=ts,
             )
             yield StateUpdate(source=Source.BINANCE_WS, price=price)

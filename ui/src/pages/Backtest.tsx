@@ -23,6 +23,7 @@ interface BacktestConfig {
   fee_bps: number;
   position_size_sol: number;
   simulate_before_execute: boolean;
+  use_sources: string[];
 }
 
 interface FileSource {
@@ -143,6 +144,7 @@ export default function Backtest() {
     fee_bps: 10,
     position_size_sol: 0.1,
     simulate_before_execute: true,
+    use_sources: [],  // empty = use all available
   });
   const [status, setStatus] = useState<BacktestStatus>({ state: "idle" });
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -483,13 +485,49 @@ export default function Backtest() {
             {/* What the dataset contains */}
             {fileSources && fileSources.sources.length > 0 && (
               <div className="flex flex-col gap-1">
-                <span className="text-[10px] text-text-secondary uppercase tracking-wider">Dataset contains</span>
+                <span className="text-[10px] text-text-secondary uppercase tracking-wider">
+                  Dataset contains {fileSources.sources.length > 1 && !strategyInfo?.needs_dual_source ? "— select which to use" : ""}
+                </span>
                 <div className="flex flex-wrap gap-1.5">
-                  {fileSources.sources.map((s, i) => (
-                    <span key={i} className="text-[10px] px-2 py-0.5 bg-accent-green/10 border border-accent-green/30 text-accent-green rounded">
-                      {s.venue} ({s.type.toUpperCase()})
-                    </span>
-                  ))}
+                  {fileSources.sources.map((s, i) => {
+                    const sourceKey = s.type;
+                    const isSelected = config.use_sources.length === 0 || config.use_sources.includes(sourceKey);
+                    const canToggle = fileSources.sources.length > 1 && !strategyInfo?.needs_dual_source;
+                    return (
+                      <label
+                        key={i}
+                        className={`flex items-center gap-1 text-[10px] px-2 py-0.5 rounded border cursor-pointer select-none transition-colors ${
+                          isSelected
+                            ? "bg-accent-green/10 border-accent-green/30 text-accent-green"
+                            : "bg-bg-panel/30 border-border/40 text-text-secondary opacity-50"
+                        } ${canToggle ? "hover:opacity-80" : ""}`}
+                      >
+                        {canToggle && (
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => {
+                              setConfig((c) => {
+                                let next = c.use_sources.length === 0
+                                  ? fileSources.sources.map(x => x.type)
+                                  : [...c.use_sources];
+                                if (next.includes(sourceKey)) {
+                                  next = next.filter(x => x !== sourceKey);
+                                } else {
+                                  next.push(sourceKey);
+                                }
+                                // If all selected, clear to mean "all"
+                                if (next.length === fileSources.sources.length) next = [];
+                                return { ...c, use_sources: next };
+                              });
+                            }}
+                            className="accent-accent-green w-3 h-3"
+                          />
+                        )}
+                        {s.venue} ({s.type.toUpperCase()})
+                      </label>
+                    );
+                  })}
                   {fileSources.merged && (
                     <span className="text-[10px] px-2 py-0.5 bg-accent-indigo/10 border border-accent-indigo/30 text-accent-indigo rounded">
                       merged + lag-corrected
