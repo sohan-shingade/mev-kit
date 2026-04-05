@@ -120,8 +120,8 @@ export default function Backtest() {
     data_file: "",
     cex_data_file: "",
     strategy: "cex_dex_arb",
-    min_spread_bps: 20,
-    fee_bps: 30,
+    min_spread_bps: 5,
+    fee_bps: 10,
     position_size_sol: 0.1,
     simulate_before_execute: true,
   });
@@ -494,6 +494,7 @@ export default function Backtest() {
               }
               className="bg-bg-main border border-border rounded px-2 py-1.5 text-xs text-text-primary focus:outline-none focus:border-accent-indigo font-mono"
             />
+            <span className="text-[9px] text-text-secondary">Trigger when spread exceeds this (after fees)</span>
           </div>
           <div className="flex flex-col gap-1.5">
             <label className="text-[10px] text-text-secondary uppercase tracking-wider">
@@ -507,6 +508,7 @@ export default function Backtest() {
               }
               className="bg-bg-main border border-border rounded px-2 py-1.5 text-xs text-text-primary focus:outline-none focus:border-accent-indigo font-mono"
             />
+            <span className="text-[9px] text-text-secondary">DEX swap cost (Raydium=30, optimized routing=5-10)</span>
           </div>
           <div className="flex flex-col gap-1.5">
             <label className="text-[10px] text-text-secondary uppercase tracking-wider">

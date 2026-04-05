@@ -142,10 +142,10 @@ class Pipeline:
             async for update in adapter.stream():
                 if not self._running:
                     break
-                try:
-                    self._update_queue.put_nowait(update)
-                except asyncio.QueueFull:
-                    logger.warning("pipeline.queue_full", adapter=adapter.name)
+                # Use blocking put to ensure no data is dropped.
+                # This also ensures fair interleaving — when the queue
+                # is full, this adapter yields control so others can drain.
+                await self._update_queue.put(update)
         finally:
             # Track adapter completion; push sentinel when all are done
             self._adapters_done += 1
