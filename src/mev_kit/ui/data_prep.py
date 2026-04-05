@@ -22,6 +22,7 @@ def prepare_backtest_data(
     interval_seconds: int = 60,
     price_column: str = "close",
     lag: bool = True,
+    orderbook_path: str | None = None,
 ) -> dict[str, Any]:
     """Merge DEX and CEX data into a time-aligned backtest dataset.
 
@@ -39,6 +40,10 @@ def prepare_backtest_data(
         interval_seconds: Expected candle interval for rounding.
         price_column: Which candle price to use.
         lag: If True, shift prices by 1 row to prevent lookahead.
+        orderbook_path: Optional path to an order book Parquet (Tardis/Kaiko
+            format).  When provided, book metrics (spread, depth) are joined
+            onto each row so FillSimulator can use real L2 data instead of
+            estimates.
 
     Returns:
         Dict with merge statistics (rows, overlap, gaps, etc.).
@@ -115,9 +120,33 @@ def prepare_backtest_data(
         ).alias("spread_bps")
     )
 
+    # Optionally merge order book data for realistic CEX slippage
+    ob_stats: dict[str, Any] = {}
+    if orderbook_path:
+        try:
+            ob_df = pl.read_parquet(orderbook_path)
+            ob_df = ob_df.with_columns(
+                pl.col("timestamp").dt.truncate(f"{interval_seconds}s").alias("ts_aligned")
+            ).group_by("ts_aligned").agg(
+                pl.col("spread_bps").mean().alias("book_spread_bps"),
+                pl.col("bid_depth").mean().alias("book_bid_depth"),
+                pl.col("ask_depth").mean().alias("book_ask_depth"),
+                pl.col("mid_price").last().alias("book_mid_price"),
+            )
+            merged = merged.join(ob_df, on="ts_aligned", how="left")
+            ob_stats["orderbook_joined"] = True
+            ob_stats["orderbook_rows_matched"] = int(
+                merged["book_spread_bps"].drop_nulls().len()
+            )
+        except Exception as exc:
+            logger.warning("data_prep.orderbook_join_failed", error=str(exc))
+            ob_stats["orderbook_joined"] = False
+            ob_stats["orderbook_error"] = str(exc)
+
     # Build the output in the format ParquetReplayAdapter expects for "pool" type
     # This creates a unified dataset that the backtest runner can use with a SINGLE adapter
-    output_df = merged.select(
+    # Include book columns when they are present (from the optional orderbook join above)
+    base_select = [
         pl.col("ts_aligned").alias("timestamp"),
         pl.col("dex_price"),
         pl.col("cex_price"),
@@ -135,7 +164,18 @@ def prepare_backtest_data(
         # CEX columns for the price side
         pl.lit("SOL/USDC").alias("symbol"),
         pl.col("cex_price").alias("cex_close"),
-    )
+    ]
+
+    # Append book columns when available so FillSimulator can read real L2 data
+    if "book_spread_bps" in merged.columns:
+        base_select += [
+            pl.col("book_spread_bps"),
+            pl.col("book_bid_depth"),
+            pl.col("book_ask_depth"),
+            pl.col("book_mid_price"),
+        ]
+
+    output_df = merged.select(base_select)
 
     # Write output
     Path(output_path).parent.mkdir(parents=True, exist_ok=True)
@@ -164,6 +204,7 @@ def prepare_backtest_data(
         "data_gaps_pct": gap_pct,
         "lag_applied": lag,
         "output_path": output_path,
+        **ob_stats,
     }
 
     logger.info("data_prep.merged", **stats)

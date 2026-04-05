@@ -30,6 +30,7 @@ import math
 import random
 from typing import Any
 
+import polars as pl
 import structlog
 
 from mev_kit.adapters.simulators.base import Simulator
@@ -195,11 +196,67 @@ class FillSimulator(Simulator):
         seed = config.get("random_seed")
         self._rng = random.Random(seed)
 
+        # Real order book data (set via set_book_data())
+        self._book_data: dict[str, dict[str, float]] = {}
+        self._has_real_book = False
+
         # Stats
         self._total_simulated = 0
         self._total_landed = 0
         self._total_profitable_after_costs = 0
         self._total_slippage_bps = 0.0
+
+    def set_book_data(self, book_df: pl.DataFrame) -> None:
+        """Load order book snapshots for realistic slippage.
+
+        Expects a DataFrame with columns: timestamp (or ts_aligned),
+        book_spread_bps (or spread_bps), book_bid_depth (or bid_depth),
+        book_ask_depth (or ask_depth).
+
+        The lookup key is the ISO-format timestamp truncated to the minute.
+        During simulate(), if the opportunity's timestamp matches a key, the
+        real book data replaces the venue-default estimates.
+
+        Args:
+            book_df: DataFrame containing order book snapshot columns, typically
+                from a merged backtest Parquet that was prepared with an
+                orderbook_path argument.
+        """
+        self._book_data = {}
+
+        # Resolve column names — accept both raw and prefixed variants
+        ts_col = "ts_aligned" if "ts_aligned" in book_df.columns else "timestamp"
+        spread_col = (
+            "book_spread_bps" if "book_spread_bps" in book_df.columns else "spread_bps"
+        )
+        bid_col = (
+            "book_bid_depth" if "book_bid_depth" in book_df.columns else "bid_depth"
+        )
+        ask_col = (
+            "book_ask_depth" if "book_ask_depth" in book_df.columns else "ask_depth"
+        )
+
+        if ts_col not in book_df.columns:
+            logger.warning("fill_simulator.set_book_data.no_timestamp_column")
+            return
+
+        for row in book_df.iter_rows(named=True):
+            ts = row.get(ts_col)
+            if ts is None:
+                continue
+            key = str(ts)[:16]  # Key by minute: "2026-04-01T12:05"
+            self._book_data[key] = {
+                "spread_bps": float(row.get(spread_col) or 1.0),
+                "bid_depth": float(row.get(bid_col) or 100.0),
+                "ask_depth": float(row.get(ask_col) or 100.0),
+            }
+
+        self._has_real_book = len(self._book_data) > 0
+        logger.info(
+            "fill_simulator.book_data_loaded",
+            entries=len(self._book_data),
+            has_real_book=self._has_real_book,
+        )
 
     async def simulate(self, opportunity: Opportunity) -> SimulationResult:
         """Simulate realistic fill for this opportunity."""
@@ -216,7 +273,9 @@ class FillSimulator(Simulator):
         fee_bps = self._calc_fee_bps()
 
         # ── Step 2: Calculate price impact (slippage) ──
-        slippage_bps = self._calc_price_impact(trade_size_sol)
+        slippage_bps = self._calc_price_impact(
+            trade_size_sol, opportunity_ts=opportunity.detected_at
+        )
         self._total_slippage_bps += slippage_bps
 
         # ── Step 3: State staleness — price may have moved ──
@@ -313,7 +372,11 @@ class FillSimulator(Simulator):
         # DEX: standard fee from pool config
         return self.venue["fee_numerator"] / self.venue["fee_denominator"] * 10_000
 
-    def _calc_price_impact(self, trade_size_sol: float) -> float:
+    def _calc_price_impact(
+        self,
+        trade_size_sol: float,
+        opportunity_ts: Any | None = None,
+    ) -> float:
         """Calculate price impact in bps using venue-specific model.
 
         DEX (constant product / CLMM):
@@ -328,7 +391,12 @@ class FillSimulator(Simulator):
         model = self.venue.get("slippage_model", "constant_product")
 
         if model == "order_book":
-            return self._calc_orderbook_impact(trade_size_sol)
+            # Look up real book data for this timestamp when available
+            real_book: dict[str, float] | None = None
+            if self._has_real_book and opportunity_ts is not None:
+                key = str(opportunity_ts)[:16]
+                real_book = self._book_data.get(key)
+            return self._calc_orderbook_impact(trade_size_sol, real_book=real_book)
 
         # DEX: constant product with capital efficiency adjustment
         effective_reserve = self.pool_depth * self.venue["capital_efficiency"]
@@ -343,7 +411,11 @@ class FillSimulator(Simulator):
 
         return max(impact_bps, 0.1)
 
-    def _calc_orderbook_impact(self, trade_size_sol: float) -> float:
+    def _calc_orderbook_impact(
+        self,
+        trade_size_sol: float,
+        real_book: dict[str, float] | None = None,
+    ) -> float:
         """Calculate order book slippage for CEX venues.
 
         Order book slippage = half-spread + market impact
@@ -359,9 +431,30 @@ class FillSimulator(Simulator):
 
         Key difference from DEX: CEX has discrete price levels,
         partial fills at each level, and much deeper liquidity.
+
+        When real_book is provided (from Tardis/Kaiko snapshot data),
+        the empirical spread and depth replace the venue-profile estimates,
+        giving a more accurate slippage figure for backtesting.
+
+        Args:
+            trade_size_sol: Trade size in SOL.
+            real_book: Optional dict with keys ``spread_bps``, ``bid_depth``,
+                ``ask_depth`` from a real order book snapshot.
         """
-        avg_spread_bps = self.venue.get("avg_spread_bps", 1.0)
-        book_depth_usd = self.venue.get("book_depth_usd", 2_000_000)
+        if real_book is not None:
+            # Use real empirical book data — spread is already in bps
+            avg_spread_bps = real_book["spread_bps"]
+            # Depths are in quote tokens (SOL units from Tardis); convert to USD
+            # (rough: 1 SOL ~ $100 for impact calculation)
+            book_depth_usd = (
+                (real_book["bid_depth"] + real_book["ask_depth"]) / 2
+            ) * 100
+            if book_depth_usd < 1000:
+                # Depth looks like it's already in USD or very small — use as-is
+                book_depth_usd = max(book_depth_usd, 10_000)
+        else:
+            avg_spread_bps = self.venue.get("avg_spread_bps", 1.0)
+            book_depth_usd = self.venue.get("book_depth_usd", 2_000_000)
 
         # Half-spread cost (crossing from mid to best bid/ask)
         half_spread = avg_spread_bps / 2.0

@@ -225,6 +225,7 @@ async def prepare_data(request: Request, body: dict[str, Any]) -> dict[str, Any]
 
     dex_file = body.get("dex_file", "")
     cex_file = body.get("cex_file", "")
+    orderbook_file = body.get("orderbook_file", "")
     interval = int(body.get("interval_seconds", 60))
     lag = body.get("lag", True)
 
@@ -233,6 +234,13 @@ async def prepare_data(request: Request, body: dict[str, Any]) -> dict[str, Any]
     # Resolve paths
     dex_path = f"{data_dir}/{dex_file}" if "/" not in dex_file else dex_file
     cex_path = f"{data_dir}/{cex_file}" if "/" not in cex_file else cex_file
+    ob_path: str | None = None
+    if orderbook_file:
+        ob_path = (
+            f"{data_dir}/{orderbook_file}"
+            if "/" not in orderbook_file
+            else orderbook_file
+        )
 
     # Generate output filename
     ts = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
@@ -247,6 +255,7 @@ async def prepare_data(request: Request, body: dict[str, Any]) -> dict[str, Any]
             output_path=output_path,
             interval_seconds=interval,
             lag=lag,
+            orderbook_path=ob_path,
         )
         return {"status": "completed", **stats}
     except Exception as exc:
@@ -920,10 +929,72 @@ async def _run_market_fetch(
             step += 1
             _fetch_jobs[job_id]["progress"] = step
 
-        # Step 4: Auto-merge if we have both CEX and DEX data
+        # Step 4: Fetch order book data for CEX venues if Tardis/Kaiko is available
+        from mev_kit.ui.orderbook_data import (
+            fetch_kaiko_orderbook,
+            fetch_tardis_orderbook,
+            get_orderbook_provider,
+        )
+
+        ob_provider = get_orderbook_provider()
+        if ob_provider and ("binance" in venues or "coinbase" in venues):
+            _fetch_jobs[job_id]["steps"]["orderbook"] = f"running ({ob_provider})"
+            exchange = "binance" if "binance" in venues else "coinbase"
+            symbol = (
+                market.get("binance_symbol", "")
+                if "binance" in venues
+                else market.get("coinbase_symbol", "")
+            )
+
+            if symbol:
+                # Use the first day of the requested date range as the date for Tardis
+                from datetime import UTC, timedelta
+                start_date = (
+                    datetime.now(UTC) - timedelta(days=days)
+                ).strftime("%Y-%m-%d")
+                end_date = datetime.now(UTC).strftime("%Y-%m-%d")
+
+                if ob_provider == "tardis":
+                    ob_result = await fetch_tardis_orderbook(
+                        exchange=exchange,
+                        symbol=symbol.lower(),
+                        date=start_date,
+                        output_dir=data_dir,
+                    )
+                else:  # kaiko
+                    ob_result = await fetch_kaiko_orderbook(
+                        exchange=exchange,
+                        symbol=symbol.lower(),
+                        start_date=start_date,
+                        end_date=end_date,
+                        output_dir=data_dir,
+                    )
+
+                if ob_result.get("status") == "completed":
+                    fetched_files["orderbook"] = ob_result["file"]
+                    _fetch_jobs[job_id]["steps"]["orderbook"] = (
+                        f"completed ({ob_provider}, {ob_result.get('rows', 0)} rows)"
+                    )
+                else:
+                    _fetch_jobs[job_id]["steps"]["orderbook"] = (
+                        f"unavailable: {ob_result.get('error', '?')}"
+                    )
+                    logger.warning(
+                        "fetch_market.orderbook_failed",
+                        provider=ob_provider,
+                        error=ob_result.get("error"),
+                    )
+            else:
+                _fetch_jobs[job_id]["steps"]["orderbook"] = "skipped (no symbol)"
+
+            step += 1
+            _fetch_jobs[job_id]["progress"] = step
+
+        # Step 5: Auto-merge if we have both CEX and DEX data
         # Prefer Binance, fall back to Coinbase or Bybit as CEX source
         cex_file = fetched_files.get("cex") or fetched_files.get("coinbase") or fetched_files.get("bybit")
         dex_file = fetched_files.get("dex")
+        ob_file = fetched_files.get("orderbook")
 
         if auto_merge and cex_file and dex_file:
             _fetch_jobs[job_id]["steps"]["merge"] = "running"
@@ -940,6 +1011,7 @@ async def _run_market_fetch(
                     output_path=output_path,
                     interval_seconds=interval_secs,
                     lag=lag,
+                    orderbook_path=f"{data_dir}/{ob_file}" if ob_file else None,
                 )
 
                 if stats.get("error"):

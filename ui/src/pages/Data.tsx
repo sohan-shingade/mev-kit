@@ -4,7 +4,7 @@ import type { DataFile } from "../api/types";
 import Modal from "../components/common/Modal";
 import DataTable from "../components/common/DataTable";
 import { toast } from "../components/common/Toast";
-import { RefreshCw, Trash2, Eye, Download } from "lucide-react";
+import { RefreshCw, Trash2, Eye, Download, BookOpen } from "lucide-react";
 
 interface PreviewData {
   columns: string[];
@@ -189,6 +189,9 @@ export default function Data() {
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
 
+  // API key env status (for order book provider badge)
+  const [envKeys, setEnvKeys] = useState<Record<string, boolean>>({});
+
   // Unified form state
   const [selectedMarket, setSelectedMarket] = useState<MarketPreset>(MARKET_PRESETS[0]);
   const [selectedVenues, setSelectedVenues] = useState<Set<VenueName>>(new Set(["binance", "birdeye"]));
@@ -249,6 +252,9 @@ export default function Data() {
 
   useEffect(() => {
     fetchFiles();
+    get<Record<string, boolean>>("/api/config/env")
+      .then(setEnvKeys)
+      .catch(() => {});
   }, [fetchFiles]);
 
   // When market changes, update venue availability and reset pool selection
@@ -617,6 +623,14 @@ export default function Data() {
           </div>
         </div>
 
+        {/* Order book data provider banner — shown when a CEX venue is selected */}
+        {(selectedVenues.has("binance") || selectedVenues.has("coinbase")) && (
+          <OrderBookProviderBadge
+            hasTardis={!!envKeys["TARDIS_API_KEY"]}
+            hasKaiko={!!envKeys["KAIKO_API_KEY"]}
+          />
+        )}
+
         {/* Birdeye venue-specific pool selector */}
         {selectedVenues.has("birdeye") && (
           <div className="flex flex-col gap-1.5">
@@ -803,6 +817,14 @@ export default function Data() {
                 />
               )}
 
+              {/* Order book step */}
+              {activeJob.steps && "orderbook" in activeJob.steps && (
+                <StepRow
+                  label="Order book (L2)"
+                  status={String(activeJob.steps.orderbook)}
+                />
+              )}
+
               {/* Merge step */}
               {activeJob.steps && "merge" in activeJob.steps && (
                 <StepRow
@@ -868,6 +890,22 @@ export default function Data() {
                         }`}
                       >
                         {activeJob.merge_stats.lag_applied ? "Yes" : "No"}
+                      </span>
+                    </>
+                  )}
+                  {activeJob.merge_stats?.orderbook_joined != null && (
+                    <>
+                      <span className="text-text-secondary">Order book</span>
+                      <span
+                        className={`font-mono ${
+                          activeJob.merge_stats.orderbook_joined
+                            ? "text-accent-green"
+                            : "text-accent-amber"
+                        }`}
+                      >
+                        {activeJob.merge_stats.orderbook_joined
+                          ? `joined (${Number(activeJob.merge_stats.orderbook_rows_matched ?? 0).toLocaleString()} rows)`
+                          : "not joined"}
                       </span>
                     </>
                   )}
@@ -937,6 +975,45 @@ export default function Data() {
           </div>
         </div>
       </Modal>
+    </div>
+  );
+}
+
+/** Badge showing the active order book data provider (or a warning if none). */
+function OrderBookProviderBadge({
+  hasTardis,
+  hasKaiko,
+}: {
+  hasTardis: boolean;
+  hasKaiko: boolean;
+}) {
+  if (hasTardis) {
+    return (
+      <div className="flex items-center gap-1.5 text-[10px] text-accent-green border border-accent-green/30 rounded px-2 py-1.5 bg-accent-green/5">
+        <BookOpen size={11} />
+        L2 order book data via <span className="font-semibold">Tardis.dev</span> — realistic
+        slippage simulation
+      </div>
+    );
+  }
+  if (hasKaiko) {
+    return (
+      <div className="flex items-center gap-1.5 text-[10px] text-accent-green border border-accent-green/30 rounded px-2 py-1.5 bg-accent-green/5">
+        <BookOpen size={11} />
+        L2 order book data via <span className="font-semibold">Kaiko</span> — institutional
+        grade slippage simulation
+      </div>
+    );
+  }
+  return (
+    <div className="flex items-start gap-1.5 text-[10px] text-accent-amber border border-accent-amber/30 rounded px-2 py-1.5 bg-accent-amber/5">
+      <BookOpen size={11} className="mt-0.5 shrink-0" />
+      <span>
+        No order book data provider configured — using <span className="font-semibold">estimated</span>{" "}
+        slippage model. Add{" "}
+        <span className="font-mono">TARDIS_API_KEY</span> to .env for real L2 data
+        (free: first day of each month).
+      </span>
     </div>
   );
 }
