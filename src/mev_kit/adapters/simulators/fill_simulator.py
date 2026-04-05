@@ -47,6 +47,8 @@ DEFAULT_POOL_DEPTH_SOL = {
     "orca": 30_000,       # ~$2.5M TVL one side
     "jupiter": 80_000,    # Aggregated across venues
     "aggregated": 60_000, # Weighted average
+    "binance": 500_000,   # Deep order book — $40M+ depth
+    "coinbase": 200_000,  # Shallower than Binance for SOL
 }
 
 VENUE_PROFILES: dict[str, dict[str, Any]] = {
@@ -106,6 +108,46 @@ VENUE_PROFILES: dict[str, dict[str, Any]] = {
         "tip_pct_of_profit": 0.10,
         "min_tip_lamports": 10_000,
         "compute_units": 250_000,
+    },
+    # ── CEX venues — order book model, not AMM ──
+    "binance": {
+        "label": "Binance",
+        "fee_numerator": 10,
+        "fee_denominator": 10_000,     # 0.10% maker/taker (VIP0 spot)
+        "slippage_model": "order_book",
+        "capital_efficiency": 10.0,    # Deep book, very low impact for small sizes
+        "landing_rate_base": 0.98,     # CEX orders almost always fill
+        "landing_rate_uncompetitive": 0.99,
+        "avg_latency_slots": 0,        # No Solana slots — CEX latency below
+        "slot_time_ms": 50,            # ~50ms API round-trip
+        "tip_pct_of_profit": 0.0,      # No Jito tips on CEX
+        "min_tip_lamports": 0,
+        "compute_units": 0,            # Not a Solana tx
+        # CEX-specific params
+        "maker_fee_bps": 10,           # 0.10% maker (VIP0)
+        "taker_fee_bps": 10,           # 0.10% taker (VIP0)
+        "book_depth_usd": 5_000_000,   # Typical bid/ask depth within 10 bps
+        "avg_spread_bps": 1.0,         # Tight spread on SOL/USDT
+        "fill_rate": 0.98,             # Market orders almost always fill
+    },
+    "coinbase": {
+        "label": "Coinbase",
+        "fee_numerator": 12,
+        "fee_denominator": 10_000,     # ~0.12% avg (maker 0.06%, taker 0.18% Advanced)
+        "slippage_model": "order_book",
+        "capital_efficiency": 5.0,     # Shallower book than Binance for SOL
+        "landing_rate_base": 0.97,
+        "landing_rate_uncompetitive": 0.99,
+        "avg_latency_slots": 0,
+        "slot_time_ms": 80,            # Slightly slower API
+        "tip_pct_of_profit": 0.0,
+        "min_tip_lamports": 0,
+        "compute_units": 0,
+        "maker_fee_bps": 6,            # 0.06% maker (Advanced Trading)
+        "taker_fee_bps": 18,           # 0.18% taker (Advanced Trading)
+        "book_depth_usd": 2_000_000,   # SOL-USD depth thinner than Binance
+        "avg_spread_bps": 2.0,         # Wider than Binance
+        "fill_rate": 0.97,
     },
 }
 
@@ -178,9 +220,13 @@ class FillSimulator(Simulator):
         self._total_slippage_bps += slippage_bps
 
         # ── Step 3: State staleness — price may have moved ──
-        # Model: during the latency window, the spread may narrow
+        # CEX: ~50-80ms latency, minimal decay
+        # DEX: ~2 seconds (5 slots), significant decay
         latency_slots = self.venue["avg_latency_slots"]
-        staleness_decay_bps = self._calc_staleness_decay(latency_slots)
+        if self.venue.get("slippage_model") == "order_book":
+            staleness_decay_bps = self._rng.random() * 0.5  # 0-0.5 bps for CEX
+        else:
+            staleness_decay_bps = self._calc_staleness_decay(latency_slots)
 
         # ── Step 4: Net spread after ALL costs ──
         total_cost_bps = fee_bps + slippage_bps + staleness_decay_bps
@@ -258,26 +304,33 @@ class FillSimulator(Simulator):
 
     def _calc_fee_bps(self) -> float:
         """Calculate venue fee in basis points."""
-        fee = self.venue["fee_numerator"] / self.venue["fee_denominator"] * 10_000
+        # CEX: use taker fee (market orders for MEV speed)
+        if self.venue.get("slippage_model") == "order_book":
+            return float(self.venue.get("taker_fee_bps", 10))
         # Jupiter: zero Jupiter fee, but underlying venue fees apply
         if self.venue_name == "jupiter":
-            fee = self.venue.get("underlying_fee_bps", 25)
-        return fee
+            return float(self.venue.get("underlying_fee_bps", 25))
+        # DEX: standard fee from pool config
+        return self.venue["fee_numerator"] / self.venue["fee_denominator"] * 10_000
 
     def _calc_price_impact(self, trade_size_sol: float) -> float:
         """Calculate price impact in bps using venue-specific model.
 
-        Raydium (constant product):
+        DEX (constant product / CLMM):
             impact = trade_size / (reserve + trade_size)
-            For a pool with 50K SOL: 1 SOL trade = 0.002% = 0.2 bps
+            Adjusted by capital_efficiency for concentrated liquidity
 
-        Orca (concentrated liquidity):
-            Same formula but with effective_reserve = reserve × capital_efficiency
-            3x efficiency means ~3x less slippage for same TVL
-
-        Jupiter (aggregated):
-            Splits trade across venues, further reducing per-venue impact
+        CEX (order book):
+            impact = trade_value / book_depth × scaling_factor
+            Much lower than DEX for equivalent liquidity
+            Plus the bid-ask spread as a baseline cost
         """
+        model = self.venue.get("slippage_model", "constant_product")
+
+        if model == "order_book":
+            return self._calc_orderbook_impact(trade_size_sol)
+
+        # DEX: constant product with capital efficiency adjustment
         effective_reserve = self.pool_depth * self.venue["capital_efficiency"]
 
         # Constant product price impact: dx / (R + dx)
@@ -285,12 +338,54 @@ class FillSimulator(Simulator):
         impact_bps = impact_fraction * 10_000
 
         # Add market microstructure noise (±30%)
-        # Real slippage varies due to concurrent trades, pool rebalancing
         noise = 1.0 + (self._rng.random() - 0.5) * 0.6
         impact_bps *= noise
 
-        # Floor: even tiny trades have some minimum cost (spread, rounding)
         return max(impact_bps, 0.1)
+
+    def _calc_orderbook_impact(self, trade_size_sol: float) -> float:
+        """Calculate order book slippage for CEX venues.
+
+        Order book slippage = half-spread + market impact
+
+        Half-spread: the cost of crossing from mid to best bid/ask.
+        For Binance SOL/USDT: ~0.5-1 bps half-spread.
+        For Coinbase SOL-USD: ~1-2 bps half-spread.
+
+        Market impact: walking through the book beyond best price.
+        Modeled as: (trade_value_usd / book_depth_usd) × 10000
+        This is approximately square-root for large orders but
+        linear for the small sizes MEV bots typically trade.
+
+        Key difference from DEX: CEX has discrete price levels,
+        partial fills at each level, and much deeper liquidity.
+        """
+        avg_spread_bps = self.venue.get("avg_spread_bps", 1.0)
+        book_depth_usd = self.venue.get("book_depth_usd", 2_000_000)
+
+        # Half-spread cost (crossing from mid to best bid/ask)
+        half_spread = avg_spread_bps / 2.0
+
+        # Estimate trade value in USD (rough: SOL ~ $80-150)
+        trade_value_usd = trade_size_sol * 100  # ~$100/SOL estimate
+
+        # Market impact: linear for small orders, sqrt for large
+        # Linear regime: trade < 10% of top-of-book depth
+        # sqrt regime: trade > 10% of book
+        linear_impact_bps = (trade_value_usd / book_depth_usd) * 10_000
+
+        if trade_value_usd > book_depth_usd * 0.1:
+            # Large order — sqrt model (Almgren-Chriss)
+            # impact ∝ sqrt(trade_size / daily_volume)
+            impact_bps = math.sqrt(linear_impact_bps * 10_000) / 100
+        else:
+            impact_bps = linear_impact_bps
+
+        # Add noise (±20% — CEX books are more stable than AMM)
+        noise = 1.0 + (self._rng.random() - 0.5) * 0.4
+        total = (half_spread + impact_bps) * noise
+
+        return max(total, 0.05)
 
     def _calc_staleness_decay(self, latency_slots: int) -> float:
         """Model spread narrowing during execution latency.

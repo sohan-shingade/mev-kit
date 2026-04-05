@@ -733,10 +733,16 @@ export default function Backtest() {
             onChange={(e) => setConfig((c) => ({ ...c, venue: e.target.value }))}
             className="bg-bg-main border border-border rounded px-2 py-1.5 text-xs text-text-primary focus:outline-none focus:border-accent-indigo"
           >
-            <option value="raydium">Raydium AMM (25 bps fee, ~40% landing)</option>
-            <option value="orca">Orca Whirlpool (20 bps fee, ~40% landing)</option>
-            <option value="jupiter">Jupiter Aggregated (15 bps fee, ~45% landing)</option>
-            <option value="aggregated">DEX Aggregated (20 bps fee, ~40% landing)</option>
+            <optgroup label="DEX (on-chain, Jito bundle)">
+              <option value="raydium">Raydium AMM (25 bps, ~40% Jito landing)</option>
+              <option value="orca">Orca Whirlpool (30 bps, ~40% Jito landing)</option>
+              <option value="jupiter">Jupiter Aggregated (0+25 bps venue, ~45% landing)</option>
+              <option value="aggregated">DEX Aggregated (25 bps, ~40% landing)</option>
+            </optgroup>
+            <optgroup label="CEX (order book)">
+              <option value="binance">Binance (10 bps taker, ~98% fill, 50ms)</option>
+              <option value="coinbase">Coinbase (18 bps taker, ~97% fill, 80ms)</option>
+            </optgroup>
           </select>
           <span className="text-[9px] text-text-secondary">Simulates venue-specific slippage, fees, and Jito landing rate</span>
         </div>
