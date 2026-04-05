@@ -145,6 +145,31 @@ async def fetch_birdeye(request: Request, body: dict[str, Any]) -> dict[str, Any
     return {"status": "started", "job_id": job_id}
 
 
+@router.post("/fetch/market")
+async def fetch_market(request: Request, body: dict[str, Any]) -> dict[str, Any]:
+    """Unified market data fetch -- handles multiple venues and auto-merge."""
+    market = body.get("market", {})
+    venues = body.get("venues", [])
+    interval = body.get("interval", "1m")
+    days = int(body.get("days", 7))
+    auto_merge = body.get("auto_merge", True)
+    lag = body.get("lag", True)
+    data_dir = request.app.state.data_dir.rstrip("/")
+
+    job_id = f"market_{datetime.now(UTC).strftime('%H%M%S')}"
+    _fetch_jobs[job_id] = {
+        "status": "running",
+        "progress": 0,
+        "total": len(venues) + (1 if auto_merge and len(venues) > 1 else 0),
+        "steps": {},
+    }
+
+    asyncio.create_task(
+        _run_market_fetch(job_id, market, venues, interval, days, auto_merge, lag, data_dir)
+    )
+    return {"status": "started", "job_id": job_id}
+
+
 @router.post("/prepare")
 async def prepare_data(request: Request, body: dict[str, Any]) -> dict[str, Any]:
     """Merge DEX + CEX data into a time-aligned backtest dataset."""
@@ -476,5 +501,158 @@ async def _run_helius_fetch(
 
     except Exception as exc:
         logger.warning("fetch_helius.error", error=str(exc))
+        _fetch_jobs[job_id]["status"] = "error"
+        _fetch_jobs[job_id]["error"] = str(exc)
+
+
+async def _run_market_fetch(
+    job_id: str,
+    market: dict[str, Any],
+    venues: list[str],
+    interval: str,
+    days: int,
+    auto_merge: bool,
+    lag: bool,
+    data_dir: str,
+) -> None:
+    """Orchestrate multi-venue fetch + merge."""
+    import os
+
+    from mev_kit.ui.data_prep import prepare_backtest_data
+
+    label = market.get("label", "unknown").replace("/", "_").lower()
+    ts = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
+    fetched_files: dict[str, str] = {}
+
+    try:
+        step = 0
+
+        # Step 1: Fetch Binance (CEX)
+        if "binance" in venues and market.get("binance_symbol"):
+            _fetch_jobs[job_id]["steps"]["binance"] = "running"
+            symbol = market["binance_symbol"]
+            use_us = market.get("use_binance_us", False)
+
+            binance_job = f"{job_id}_binance"
+            _fetch_jobs[binance_job] = {"status": "running", "progress": 0, "total": 0}
+
+            await _run_binance_fetch(binance_job, symbol, interval, days, data_dir, use_us)
+
+            if _fetch_jobs[binance_job]["status"] == "completed":
+                fetched_files["cex"] = _fetch_jobs[binance_job].get("file", "")
+                _fetch_jobs[job_id]["steps"]["binance"] = "completed"
+                _fetch_jobs[job_id]["steps"]["binance_rows"] = _fetch_jobs[binance_job].get("rows", 0)
+            else:
+                _fetch_jobs[job_id]["steps"]["binance"] = f"error: {_fetch_jobs[binance_job].get('error', 'unknown')}"
+
+            step += 1
+            _fetch_jobs[job_id]["progress"] = step
+
+        # Step 2: Fetch Birdeye (DEX)
+        if "birdeye" in venues and market.get("birdeye_base"):
+            api_key = os.environ.get("BIRDEYE_API_KEY", "")
+            if not api_key:
+                _fetch_jobs[job_id]["steps"]["birdeye"] = "error: BIRDEYE_API_KEY not set"
+            else:
+                _fetch_jobs[job_id]["steps"]["birdeye"] = "running"
+
+                birdeye_job = f"{job_id}_birdeye"
+                _fetch_jobs[birdeye_job] = {"status": "running", "progress": 0, "total": 0}
+
+                # Birdeye uses uppercase H/D for hour/day intervals
+                birdeye_interval = interval
+                if interval in ("1h", "4h"):
+                    birdeye_interval = interval[:-1] + "H"
+                elif interval in ("1d",):
+                    birdeye_interval = interval[:-1] + "D"
+
+                await _run_birdeye_fetch(
+                    birdeye_job,
+                    market["birdeye_base"],
+                    market["birdeye_quote"],
+                    birdeye_interval,
+                    days,
+                    market.get("label", "pair"),
+                    data_dir,
+                    api_key,
+                )
+
+                if _fetch_jobs[birdeye_job]["status"] == "completed":
+                    fetched_files["dex"] = _fetch_jobs[birdeye_job].get("file", "")
+                    _fetch_jobs[job_id]["steps"]["birdeye"] = "completed"
+                    _fetch_jobs[job_id]["steps"]["birdeye_rows"] = _fetch_jobs[birdeye_job].get("rows", 0)
+                else:
+                    _fetch_jobs[job_id]["steps"]["birdeye"] = f"error: {_fetch_jobs[birdeye_job].get('error', 'unknown')}"
+
+            step += 1
+            _fetch_jobs[job_id]["progress"] = step
+
+        # Step 3: Fetch Helius (live poll) -- only if selected
+        if "helius" in venues and market.get("helius_pool"):
+            api_key = os.environ.get("HELIUS_API_KEY", "")
+            if not api_key:
+                _fetch_jobs[job_id]["steps"]["helius"] = "error: HELIUS_API_KEY not set"
+            else:
+                _fetch_jobs[job_id]["steps"]["helius"] = "running"
+                helius_interval = _parse_duration_to_seconds(interval, default=60)
+                helius_duration = min(days * 1440, 60)  # cap at 1 hour for live poll
+
+                helius_job = f"{job_id}_helius"
+                _fetch_jobs[helius_job] = {"status": "running", "progress": 0}
+
+                await _run_helius_fetch(
+                    helius_job,
+                    market["helius_pool"],
+                    helius_interval,
+                    helius_duration,
+                    data_dir,
+                    api_key,
+                )
+
+                if _fetch_jobs[helius_job]["status"] == "completed":
+                    fetched_files["helius"] = _fetch_jobs[helius_job].get("file", "")
+                    _fetch_jobs[job_id]["steps"]["helius"] = "completed"
+                    _fetch_jobs[job_id]["steps"]["helius_rows"] = _fetch_jobs[helius_job].get("rows", 0)
+                else:
+                    _fetch_jobs[job_id]["steps"]["helius"] = f"error: {_fetch_jobs[helius_job].get('error', 'unknown')}"
+
+            step += 1
+            _fetch_jobs[job_id]["progress"] = step
+
+        # Step 4: Auto-merge if we have both CEX and DEX data
+        if auto_merge and "cex" in fetched_files and "dex" in fetched_files:
+            _fetch_jobs[job_id]["steps"]["merge"] = "running"
+
+            interval_secs = _parse_duration_to_seconds(interval, default=60)
+            lag_suffix = "_lagged" if lag else ""
+            output_name = f"backtest_{label}_{interval}{lag_suffix}_{ts}.parquet"
+            output_path = f"{data_dir}/{output_name}"
+
+            try:
+                stats = prepare_backtest_data(
+                    dex_path=f"{data_dir}/{fetched_files['dex']}",
+                    cex_path=f"{data_dir}/{fetched_files['cex']}",
+                    output_path=output_path,
+                    interval_seconds=interval_secs,
+                    lag=lag,
+                )
+
+                if stats.get("error"):
+                    _fetch_jobs[job_id]["steps"]["merge"] = f"error: {stats['error']}"
+                else:
+                    _fetch_jobs[job_id]["steps"]["merge"] = "completed"
+                    _fetch_jobs[job_id]["merged_file"] = output_name
+                    _fetch_jobs[job_id]["merge_stats"] = stats
+            except Exception as merge_exc:
+                _fetch_jobs[job_id]["steps"]["merge"] = f"error: {merge_exc}"
+
+            step += 1
+            _fetch_jobs[job_id]["progress"] = step
+
+        _fetch_jobs[job_id]["status"] = "completed"
+        _fetch_jobs[job_id]["files"] = fetched_files
+
+    except Exception as exc:
+        logger.warning("fetch_market.error", error=str(exc))
         _fetch_jobs[job_id]["status"] = "error"
         _fetch_jobs[job_id]["error"] = str(exc)
