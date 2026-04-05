@@ -25,10 +25,16 @@ interface BacktestConfig {
   simulate_before_execute: boolean;
 }
 
-// Strategies that need dual-source data (DEX + CEX)
-const DUAL_SOURCE_STRATEGIES = new Set([
-  "cex_dex_arb", "spread_tracker", "statistical_arb",
-]);
+interface StrategyInfo {
+  name: string;
+  required_sources: string[];
+  needs_cex: boolean;
+  needs_dex: boolean;
+  needs_dual_source: boolean;
+  hyperparameters: Record<string, { min: number; max: number; step: number }>;
+  warmup_updates: number;
+  error?: string;
+}
 
 interface RunHistoryEntry {
   id: string;
@@ -130,10 +136,22 @@ export default function Backtest() {
   const [page, setPage] = useState(1);
   const PER_PAGE = 50;
 
+  const [strategyInfo, setStrategyInfo] = useState<StrategyInfo | null>(null);
+
   // Recent runs history
   const [history, setHistory] = useState<RunHistoryEntry[]>(loadHistory);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [selectedHistoryId, setSelectedHistoryId] = useState<string | null>(null);
+
+  // Fetch strategy info when strategy changes
+  useEffect(() => {
+    if (!config.strategy) return;
+    get<StrategyInfo>(`/api/strategies/info/${config.strategy}`)
+      .then((info) => {
+        if (!info.error) setStrategyInfo(info);
+      })
+      .catch(() => setStrategyInfo(null));
+  }, [config.strategy]);
 
   useEffect(() => {
     get<DataFile[]>("/api/data/files")
@@ -437,37 +455,62 @@ export default function Backtest() {
           )}
         </div>
 
-        {/* CEX data file — shown for dual-source strategies, hidden for merged datasets */}
-        {DUAL_SOURCE_STRATEGIES.has(config.strategy) &&
-         !config.data_file.includes("merged") &&
-         !config.data_file.startsWith("backtest_") ? (
-          <div className="flex flex-col gap-1.5">
-            <label className="text-[10px] text-text-secondary uppercase tracking-wider">
-              CEX Data File <span className="text-accent-amber">(required for this strategy)</span>
-            </label>
-            <select
-              value={config.cex_data_file}
-              onChange={(e) => setConfig((c) => ({ ...c, cex_data_file: e.target.value }))}
-              className="bg-bg-main border border-border rounded px-2 py-1.5 text-xs text-text-primary focus:outline-none focus:border-accent-indigo"
-            >
-              <option value="">None (single-source)</option>
-              {files.map((f) => (
-                <option key={f.name} value={f.name}>
-                  {f.name} ({f.rows.toLocaleString()} rows)
-                </option>
-              ))}
-            </select>
-            {!config.cex_data_file && (
-              <p className="text-[10px] text-accent-amber">
-                This strategy compares DEX and CEX prices. Without a CEX data file, it will detect 0 opportunities.
+        {/* Data source info — dynamic based on strategy requirements */}
+        {strategyInfo && (
+          <div className="flex flex-col gap-2 bg-bg-main/50 rounded p-3 border border-border/40">
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] text-text-secondary uppercase tracking-wider">Data Sources</span>
+              {strategyInfo.required_sources.length > 0 && (
+                <div className="flex gap-1">
+                  {strategyInfo.required_sources.map((s) => (
+                    <span key={s} className="text-[9px] px-1.5 py-0.5 bg-bg-panel rounded text-text-secondary">
+                      {s.replace("_", " ")}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Merged dataset detected */}
+            {(config.data_file.includes("merged") || config.data_file.startsWith("backtest_")) ? (
+              <p className="text-[10px] text-accent-green">
+                Merged dataset — contains both DEX and CEX prices, time-aligned with lag. Ready to backtest.
+              </p>
+            ) : strategyInfo.needs_dual_source ? (
+              /* Dual-source: needs a CEX file */
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] text-text-secondary">
+                  CEX Data File <span className="text-accent-amber">(needed: {strategyInfo.required_sources.filter(s => s === "binance_ws").join(", ") || "CEX price feed"})</span>
+                </label>
+                <select
+                  value={config.cex_data_file}
+                  onChange={(e) => setConfig((c) => ({ ...c, cex_data_file: e.target.value }))}
+                  className="bg-bg-main border border-border rounded px-2 py-1.5 text-xs text-text-primary focus:outline-none focus:border-accent-indigo"
+                >
+                  <option value="">None (single-source)</option>
+                  {files.map((f) => (
+                    <option key={f.name} value={f.name}>
+                      {f.name} ({f.rows.toLocaleString()} rows)
+                    </option>
+                  ))}
+                </select>
+                {!config.cex_data_file && (
+                  <p className="text-[10px] text-accent-amber">
+                    This strategy needs both DEX and CEX data. Use a merged dataset or select a CEX file. Without it, 0 trades will be detected.
+                  </p>
+                )}
+              </div>
+            ) : strategyInfo.required_sources.length === 0 ? (
+              <p className="text-[10px] text-text-secondary">
+                This strategy accepts any data source.
+              </p>
+            ) : (
+              <p className="text-[10px] text-text-secondary">
+                Single-source strategy — no additional data files needed.
               </p>
             )}
           </div>
-        ) : DUAL_SOURCE_STRATEGIES.has(config.strategy) && (config.data_file.includes("merged") || config.data_file.startsWith("backtest_")) ? (
-          <p className="text-[10px] text-accent-green">
-            Merged dataset detected — contains both DEX and CEX prices, time-aligned with lag. Ready to backtest.
-          </p>
-        ) : null}
+        )}
 
         <div className="flex flex-col gap-1.5">
           <label className="text-[10px] text-text-secondary uppercase tracking-wider">

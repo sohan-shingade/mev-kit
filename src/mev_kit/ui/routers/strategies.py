@@ -94,6 +94,36 @@ async def validate_strategy(body: dict[str, str]) -> dict[str, Any]:
         }
 
 
+@router.get("/info/{strategy}")
+async def get_strategy_info(strategy: str) -> dict[str, Any]:
+    """Return strategy metadata: required sources, hyperparameters, etc."""
+    from mev_kit.ui.backtest_runner import _load_detector
+
+    try:
+        detector = _load_detector(strategy, {})
+        sources = [s.value for s in detector.required_sources] if detector.required_sources else []
+        hyper = detector.hyperparameters() if hasattr(detector, "hyperparameters") else {}
+        warmup = detector.warmup_updates if hasattr(detector, "warmup_updates") else 0
+
+        # Categorize sources
+        cex_sources = {"binance_ws"}
+        dex_sources = {"helius_ws", "yellowstone_grpc", "geyser", "parquet_replay", "jupiter_api"}
+        needs_cex = bool(set(sources) & cex_sources)
+        needs_dex = bool(set(sources) & dex_sources)
+
+        return {
+            "name": detector.name,
+            "required_sources": sources,
+            "needs_cex": needs_cex,
+            "needs_dex": needs_dex,
+            "needs_dual_source": needs_cex and needs_dex,
+            "hyperparameters": {k: {"min": v[0], "max": v[1], "step": v[2]} for k, v in hyper.items()},
+            "warmup_updates": warmup,
+        }
+    except Exception as exc:
+        return {"error": str(exc)}
+
+
 @router.get("/base")
 async def get_base_class() -> dict[str, str]:
     """Return the Detector base class source for reference."""
