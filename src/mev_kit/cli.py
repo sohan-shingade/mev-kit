@@ -79,8 +79,20 @@ def ui(config_dir: str, data_dir: str, host: str, port: int, no_open: bool) -> N
     """Launch the web UI dashboard."""
     import threading
     import webbrowser
+    from pathlib import Path
 
     import uvicorn
+
+    # Load .env file if it exists
+    env_path = Path(".env")
+    if env_path.exists():
+        import os
+
+        for line in env_path.read_text().splitlines():
+            line = line.strip()
+            if line and not line.startswith("#") and "=" in line:
+                key, _, value = line.partition("=")
+                os.environ.setdefault(key.strip(), value.strip())
 
     from mev_kit.ui.server import create_app
 
