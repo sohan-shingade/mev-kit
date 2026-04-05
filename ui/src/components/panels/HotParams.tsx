@@ -1,5 +1,7 @@
-import { useState } from "react";
-import { patch } from "../../api/client";
+import { useEffect, useState } from "react";
+import { patch, get } from "../../api/client";
+import { toast } from "../common/Toast";
+import type { ConfigProfile } from "../../api/types";
 
 const PARAMS = [
   { key: "min_spread_bps", label: "min_spread", suffix: "bps" },
@@ -7,13 +9,72 @@ const PARAMS = [
   { key: "fee_bps", label: "fee_bps", suffix: "bps" },
 ];
 
-export default function HotParams() {
+const DEFAULT_VALUES: Record<string, string> = {
+  min_spread_bps: "15.0",
+  position_size_sol: "0.01",
+  fee_bps: "30.0",
+};
+
+interface Props {
+  initialParams?: Record<string, number>;
+  configProfile?: string;
+}
+
+export default function HotParams({ initialParams, configProfile }: Props) {
   const [editing, setEditing] = useState(false);
-  const [values, setValues] = useState<Record<string, string>>({
-    min_spread_bps: "15.0",
-    position_size_sol: "0.01",
-    fee_bps: "30.0",
+  const [values, setValues] = useState<Record<string, string>>(() => {
+    if (initialParams) {
+      const mapped: Record<string, string> = {};
+      for (const { key } of PARAMS) {
+        mapped[key] =
+          initialParams[key] !== undefined
+            ? String(initialParams[key])
+            : DEFAULT_VALUES[key];
+      }
+      return mapped;
+    }
+    return { ...DEFAULT_VALUES };
   });
+  const [loaded, setLoaded] = useState(false);
+
+  // Fetch initial values from config on mount
+  useEffect(() => {
+    if (initialParams || loaded) return;
+    const profile = configProfile ?? "free";
+    get<ConfigProfile>(`/api/config?profile=${profile}`)
+      .then((cfg) => {
+        const strategy = cfg.strategy as Record<string, unknown> | undefined;
+        if (!strategy) return;
+        setValues((prev) => {
+          const next = { ...prev };
+          for (const { key } of PARAMS) {
+            if (strategy[key] !== undefined) {
+              next[key] = String(strategy[key]);
+            }
+          }
+          return next;
+        });
+        setLoaded(true);
+      })
+      .catch(() => {
+        // Keep defaults on error
+        setLoaded(true);
+      });
+  }, [initialParams, configProfile, loaded]);
+
+  // Update values when initialParams prop changes (e.g. pipeline status loaded)
+  useEffect(() => {
+    if (!initialParams) return;
+    setValues((prev) => {
+      const next = { ...prev };
+      for (const { key } of PARAMS) {
+        if (initialParams[key] !== undefined) {
+          next[key] = String(initialParams[key]);
+        }
+      }
+      return next;
+    });
+  }, [initialParams]);
 
   const handleApply = async () => {
     const numeric: Record<string, number> = {};
@@ -23,8 +84,9 @@ export default function HotParams() {
     try {
       await patch("/api/pipeline/params", numeric);
       setEditing(false);
+      toast("Params applied", "success");
     } catch {
-      /* toast error */
+      toast("Failed to apply params", "error");
     }
   };
 

@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from "react";
 import Editor from "@monaco-editor/react";
 import { get, put, post } from "../api/client";
 import { toast } from "../components/common/Toast";
+import Modal from "../components/common/Modal";
 import {
   FileCode2,
   Save,
@@ -9,6 +10,7 @@ import {
   CheckCircle2,
   AlertCircle,
   Sparkles,
+  GitFork,
 } from "lucide-react";
 
 interface StrategyFile {
@@ -47,6 +49,12 @@ export default function StrategyEditor() {
   const [validating, setValidating] = useState(false);
   const editorRef = useRef<unknown>(null);
 
+  // New-strategy modal state
+  const [newStrategyOpen, setNewStrategyOpen] = useState(false);
+  const [newStrategyName, setNewStrategyName] = useState("");
+  const [newStrategyTemplate, setNewStrategyTemplate] = useState<string | null>(null);
+  const [creatingStrategy, setCreatingStrategy] = useState(false);
+
   // Load file list
   useEffect(() => {
     get<StrategyFile[]>("/api/strategies/files").then(setFiles).catch(() => {});
@@ -67,6 +75,7 @@ export default function StrategyEditor() {
       })
       .catch(() => toast("Failed to load file", "error"));
   }, [selectedPath]);
+
 
   const hasChanges = code !== originalCode;
   const isExample = files.find((f) => f.path === selectedPath)?.type === "example";
@@ -112,23 +121,54 @@ export default function StrategyEditor() {
     }
   }
 
-  async function handleNewStrategy() {
+  // Open the "New Strategy" modal, optionally pre-seeded with content and name
+  async function openNewStrategyModal(prefillName?: string, prefillContent?: string) {
     try {
-      const res = await get<{ content: string }>("/api/strategies/template");
-      const name = prompt("Strategy filename (e.g. my_detector.py):");
-      if (!name) return;
-      const filename = name.endsWith(".py") ? name : `${name}.py`;
-      setCode(res.content);
-      setOriginalCode("");
-      setSelectedPath(filename);
-      // Save immediately to create the file
-      await put(`/api/strategies/files/${filename}`, { content: res.content });
+      let templateContent = prefillContent ?? null;
+      if (!templateContent) {
+        const res = await get<{ content: string }>("/api/strategies/template");
+        templateContent = res.content;
+      }
+      setNewStrategyTemplate(templateContent);
+      setNewStrategyName(prefillName ?? "");
+      setNewStrategyOpen(true);
+    } catch {
+      toast("Failed to load template", "error");
+    }
+  }
+
+  async function handleConfirmNewStrategy() {
+    if (!newStrategyName.trim()) {
+      toast("Enter a filename", "warning");
+      return;
+    }
+    const filename = newStrategyName.trim().endsWith(".py")
+      ? newStrategyName.trim()
+      : `${newStrategyName.trim()}.py`;
+    const content = newStrategyTemplate ?? "";
+    setCreatingStrategy(true);
+    try {
+      await put(`/api/strategies/files/${filename}`, { content });
       const f = await get<StrategyFile[]>("/api/strategies/files");
       setFiles(f);
+      setCode(content);
+      setOriginalCode(content);
+      setSelectedPath(filename);
+      setNewStrategyOpen(false);
+      setNewStrategyName("");
+      setNewStrategyTemplate(null);
       toast(`Created ${filename}`, "success");
     } catch {
       toast("Failed to create strategy", "error");
+    } finally {
+      setCreatingStrategy(false);
     }
+  }
+
+  async function handleForkExample() {
+    if (!selectedPath || !isExample) return;
+    const suggestedName = `my_${selectedPath.replace("examples/", "").replace(/^.*\//, "")}`;
+    await openNewStrategyModal(suggestedName, code);
   }
 
   // Extract required_sources from code
@@ -155,7 +195,7 @@ export default function StrategyEditor() {
             </span>
           </div>
           <button
-            onClick={handleNewStrategy}
+            onClick={() => openNewStrategyModal()}
             className="p-1 text-text-secondary hover:text-accent-green transition-colors"
             title="New Strategy"
           >
@@ -232,6 +272,15 @@ export default function StrategyEditor() {
                 )}
               </div>
               <div className="flex items-center gap-2">
+                {isExample && (
+                  <button
+                    onClick={handleForkExample}
+                    className="flex items-center gap-1 px-2 py-1 text-[10px] bg-accent-amber/20 border border-accent-amber/50 text-accent-amber rounded hover:bg-accent-amber/30 transition-colors"
+                  >
+                    <GitFork size={11} />
+                    Fork
+                  </button>
+                )}
                 <button
                   onClick={handleValidate}
                   disabled={validating}
@@ -261,7 +310,17 @@ export default function StrategyEditor() {
                 theme="vs-dark"
                 value={code}
                 onChange={(v) => setCode(v ?? "")}
-                onMount={(editor) => { editorRef.current = editor; }}
+                onMount={(editor, monacoInstance) => {
+                  editorRef.current = editor;
+                  editor.addAction({
+                    id: "save-strategy",
+                    label: "Save Strategy",
+                    keybindings: [monacoInstance.KeyMod.CtrlCmd | monacoInstance.KeyCode.KeyS],
+                    run: () => {
+                      handleSave();
+                    },
+                  });
+                }}
                 options={{
                   fontSize: 13,
                   fontFamily: "'SF Mono', Monaco, 'Cascadia Code', monospace",
@@ -282,7 +341,7 @@ export default function StrategyEditor() {
               <FileCode2 size={32} className="mx-auto text-text-secondary mb-3" />
               <p className="text-sm text-text-secondary">Select a strategy or create a new one</p>
               <button
-                onClick={handleNewStrategy}
+                onClick={() => openNewStrategyModal()}
                 className="mt-3 flex items-center gap-1.5 mx-auto px-3 py-1.5 text-xs bg-accent-indigo/20 border border-accent-indigo/50 text-accent-indigo rounded hover:bg-accent-indigo/30 transition-colors"
               >
                 <Plus size={12} />
@@ -388,6 +447,58 @@ export default function StrategyEditor() {
           </div>
         </div>
       )}
+
+      {/* New Strategy Modal */}
+      <Modal
+        open={newStrategyOpen}
+        onClose={() => {
+          setNewStrategyOpen(false);
+          setNewStrategyName("");
+          setNewStrategyTemplate(null);
+        }}
+        title={newStrategyTemplate && selectedPath && isExample ? "Fork Example Strategy" : "New Strategy"}
+      >
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[10px] text-text-secondary uppercase tracking-wider">
+              Filename
+            </label>
+            <input
+              type="text"
+              value={newStrategyName}
+              onChange={(e) => setNewStrategyName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleConfirmNewStrategy();
+              }}
+              placeholder="e.g. my_detector.py"
+              autoFocus
+              className="bg-bg-main border border-border rounded px-2 py-1.5 text-xs text-text-primary focus:outline-none focus:border-accent-indigo font-mono"
+            />
+            <p className="text-[10px] text-text-secondary">
+              The <span className="font-mono">.py</span> extension will be added automatically if omitted.
+            </p>
+          </div>
+          <div className="flex gap-2 justify-end">
+            <button
+              onClick={() => {
+                setNewStrategyOpen(false);
+                setNewStrategyName("");
+                setNewStrategyTemplate(null);
+              }}
+              className="px-3 py-1.5 text-xs bg-bg-main border border-border rounded hover:bg-bg-active transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleConfirmNewStrategy}
+              disabled={creatingStrategy || !newStrategyName.trim()}
+              className="px-3 py-1.5 text-xs bg-accent-indigo/20 border border-accent-indigo/50 text-accent-indigo rounded hover:bg-accent-indigo/30 disabled:opacity-40 transition-colors"
+            >
+              {creatingStrategy ? "Creating..." : "Create"}
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

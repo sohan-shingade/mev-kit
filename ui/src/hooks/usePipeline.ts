@@ -8,6 +8,9 @@ export function usePipeline() {
   const [state, setState] = useState<string>("idle");
   const [mode, setMode] = useState<string | null>(null);
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [dexPrice, setDexPrice] = useState<number | null>(null);
+  const [cexPrice, setCexPrice] = useState<number | null>(null);
   const maxOpps = useRef(200);
 
   useEffect(() => {
@@ -16,6 +19,11 @@ export function usePipeline() {
       setMetrics(data.data as unknown as PipelineMetrics);
       setState(data.state ?? "idle");
       setMode(data.mode ?? null);
+      // Track error state
+      setError(data.error ?? null);
+      // Track live prices if present in metrics payload
+      if (data.dex_price != null) setDexPrice(data.dex_price);
+      if (data.cex_price != null) setCexPrice(data.cex_price);
     }
     if (data.type === "opportunity") {
       setOpportunities((prev) => {
@@ -26,6 +34,18 @@ export function usePipeline() {
   }, [data]);
 
   const clearOpportunities = useCallback(() => setOpportunities([]), []);
+  const clearError = useCallback(() => setError(null), []);
 
-  return { metrics, state, mode, opportunities, connected, clearOpportunities };
+  return {
+    metrics,
+    state,
+    mode,
+    opportunities,
+    connected,
+    clearOpportunities,
+    error,
+    clearError,
+    dexPrice,
+    cexPrice,
+  };
 }

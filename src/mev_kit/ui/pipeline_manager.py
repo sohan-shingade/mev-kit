@@ -42,6 +42,7 @@ class PipelineManager:
         self._start_time: float | None = None
         self._recent_opportunities: list[dict] = []
         self._max_recent = 200
+        self._error: str | None = None
 
     @classmethod
     def get(cls) -> PipelineManager:
@@ -53,9 +54,23 @@ class PipelineManager:
     def status(self) -> dict[str, Any]:
         """Return current pipeline state and metrics."""
         if self._pipeline is None or self._task is None:
-            return {"state": "idle", "mode": None, "metrics": {}}
+            base = {"state": "idle", "mode": None, "metrics": {}}
+            if self._error:
+                base["state"] = "error"
+                base["error"] = self._error
+            return base
 
         if self._task.done():
+            # Check if the task ended with an exception
+            exc = self._task.exception() if not self._task.cancelled() else None
+            if exc is not None:
+                self._error = str(exc)
+                return {
+                    "state": "error",
+                    "mode": self._mode,
+                    "metrics": {},
+                    "error": self._error,
+                }
             return {"state": "idle", "mode": None, "metrics": {}}
 
         elapsed = time.monotonic() - self._start_time if self._start_time else 0
@@ -85,6 +100,7 @@ class PipelineManager:
         if self._pipeline is not None and self._task is not None and not self._task.done():
             raise RuntimeError("Pipeline already running")
 
+        self._error = None  # Clear previous error on new start
         pipeline = _build_pipeline(mode, config_overrides)
         self._pipeline = pipeline
         self._mode = mode
@@ -107,6 +123,7 @@ class PipelineManager:
         self._task = None
         self._mode = None
         self._start_time = None
+        self._error = None
         logger.info("pipeline_manager.stopped")
 
     def hot_reload(self, params: dict) -> None:
@@ -146,12 +163,24 @@ def _build_pipeline(mode: str, config_overrides: dict) -> Pipeline:
             adapters.append(HeliusWSAdapter({"helius_api_key": helius_key}))
         adapters.append(BinanceWSAdapter({"symbol": "solusdt"}))
 
-    detector = CEXDEXArbDetector({
+    # Use _load_detector to support any registered strategy name
+    strategy_name = config_overrides.get("strategy", config.strategy)
+    detector_config = {
         "min_spread_bps": config.min_spread_bps,
         "fee_bps": config_overrides.get("fee_bps", 30.0),
         "pair": "SOL/USDC",
         "position_size_sol": config.position_size_sol,
-    })
+    }
+
+    try:
+        from mev_kit.ui.backtest_runner import _load_detector
+        detector = _load_detector(strategy_name, detector_config)
+    except Exception:
+        logger.warning(
+            "pipeline_manager.detector_load_failed",
+            strategy=strategy_name,
+        )
+        detector = CEXDEXArbDetector(detector_config)
 
     # Simulator
     if config.simulate_before_execute and mode != "backtest":

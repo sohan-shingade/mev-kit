@@ -1,13 +1,22 @@
 interface Props {
   dexPrice: number | null;
   cexPrice: number | null;
+  pipelineRunning?: boolean;
 }
 
-export default function LivePrices({ dexPrice, cexPrice }: Props) {
+export default function LivePrices({ dexPrice, cexPrice, pipelineRunning }: Props) {
   const spread =
     dexPrice && cexPrice
       ? (Math.abs(cexPrice - dexPrice) / cexPrice) * 10000
       : null;
+
+  const waitingForData = pipelineRunning && dexPrice === null && cexPrice === null;
+
+  const formatPrice = (price: number | null) => {
+    if (price !== null) return price.toFixed(2);
+    if (waitingForData) return "Waiting for data...";
+    return "—";
+  };
 
   return (
     <div className="bg-bg-panel p-2">
@@ -17,14 +26,14 @@ export default function LivePrices({ dexPrice, cexPrice }: Props) {
       <div className="space-y-1.5">
         <div className="flex justify-between">
           <span className="text-xs text-text-secondary">DEX (Raydium)</span>
-          <span className="font-mono text-sm font-semibold">
-            {dexPrice?.toFixed(2) ?? "—"}
+          <span className={`font-mono text-sm font-semibold ${waitingForData && dexPrice === null ? "text-text-secondary text-[10px]" : ""}`}>
+            {formatPrice(dexPrice)}
           </span>
         </div>
         <div className="flex justify-between">
           <span className="text-xs text-text-secondary">CEX (Binance)</span>
-          <span className="font-mono text-sm font-semibold">
-            {cexPrice?.toFixed(2) ?? "—"}
+          <span className={`font-mono text-sm font-semibold ${waitingForData && cexPrice === null ? "text-text-secondary text-[10px]" : ""}`}>
+            {formatPrice(cexPrice)}
           </span>
         </div>
         <div className="flex justify-between border-t border-border pt-1.5">

@@ -11,13 +11,36 @@ from fastapi import APIRouter, Request
 router = APIRouter()
 
 
+@router.get("/databases")
+async def list_databases(request: Request) -> list[dict[str, str]]:
+    """Discover all .db files in the data directory.
+
+    Returns a list of objects with 'name' (filename) and 'path' (relative)
+    for the frontend DB selector.
+    """
+    data_dir = Path(request.app.state.data_dir)
+    if not data_dir.exists():
+        return []
+    dbs = []
+    for db_file in sorted(data_dir.glob("*.db")):
+        dbs.append({"name": db_file.stem, "file": db_file.name})
+    return dbs
+
+
 @router.get("/{db_name}")
 async def get_summary(request: Request, db_name: str) -> dict[str, Any]:
-    db_path = Path(request.app.state.data_dir) / db_name
+    db_path = _resolve_db_path(request, db_name)
     if not db_path.exists():
         return {"error": f"Database not found: {db_name}"}
 
     async with aiosqlite.connect(str(db_path)) as db:
+        # Check that the table exists before querying
+        async with db.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='paper_trades'"
+        ) as cur:
+            if await cur.fetchone() is None:
+                return {"error": f"No paper_trades table in {db_name}"}
+
         async with db.execute("SELECT COUNT(*) FROM paper_trades") as cur:
             total = (await cur.fetchone())[0]
 
@@ -56,7 +79,7 @@ async def get_trades(
     sort: str = "timestamp",
     direction: str | None = None,
 ) -> dict[str, Any]:
-    db_path = Path(request.app.state.data_dir) / db_name
+    db_path = _resolve_db_path(request, db_name)
     if not db_path.exists():
         return {"error": f"Database not found: {db_name}"}
 
@@ -87,3 +110,15 @@ async def get_trades(
         "per_page": per_page,
         "pages": (total + per_page - 1) // per_page,
     }
+
+
+def _resolve_db_path(request: Request, db_name: str) -> Path:
+    """Resolve a db_name to a file path in the data directory.
+
+    Accepts both bare names (e.g. 'backtest_results') and names
+    with the .db extension (e.g. 'backtest_results.db').
+    """
+    data_dir = Path(request.app.state.data_dir)
+    if db_name.endswith(".db"):
+        return data_dir / db_name
+    return data_dir / db_name

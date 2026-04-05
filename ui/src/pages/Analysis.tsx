@@ -16,7 +16,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import { Download } from "lucide-react";
+import { Download, Loader2 } from "lucide-react";
 
 const CHART_COLORS = {
   line: "#00e676",
@@ -72,6 +72,7 @@ export default function Analysis() {
   const [sort, setSort] = useState("timestamp");
   const [direction, setDirection] = useState("");
   const [loading, setLoading] = useState(false);
+  const [exportingAll, setExportingAll] = useState(false);
   const PER_PAGE = 50;
 
   const fetchSummary = useCallback(async () => {
@@ -116,24 +117,54 @@ export default function Analysis() {
     fetchTrades();
   }, [fetchTrades]);
 
+  function buildCsvFromTrades(rows: TradeRow[]): string {
+    const keys = TRADE_COLUMNS.map((c) => c.key);
+    const header = keys.join(",");
+    const lines = rows.map((t) =>
+      keys.map((k) => JSON.stringify((t as unknown as Record<string, unknown>)[k] ?? "")).join(",")
+    );
+    return [header, ...lines].join("\n");
+  }
+
+  function downloadCsv(csv: string, filename: string) {
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   function exportCsv() {
     if (trades.length === 0) {
       toast("No trades to export", "warning");
       return;
     }
-    const keys = TRADE_COLUMNS.map((c) => c.key);
-    const header = keys.join(",");
-    const rows = trades.map((t) =>
-      keys.map((k) => JSON.stringify((t as unknown as Record<string, unknown>)[k] ?? "")).join(",")
-    );
-    const csv = [header, ...rows].join("\n");
-    const blob = new Blob([csv], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `trades_${db}_page${page}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+    downloadCsv(buildCsvFromTrades(trades), `trades_${db}_page${page}.csv`);
+  }
+
+  async function exportAllCsv() {
+    if (total === 0) {
+      toast("No trades to export", "warning");
+      return;
+    }
+    setExportingAll(true);
+    try {
+      const res = await get<TradesResponse & { error?: string }>(
+        `/api/analysis/${db}/trades?page=1&per_page=999999&sort=${sort}${direction ? `&direction=${direction}` : ""}`
+      );
+      if (res.error || !res.trades) {
+        toast("Failed to fetch all trades", "error");
+        return;
+      }
+      downloadCsv(buildCsvFromTrades(res.trades), `trades_${db}_full.csv`);
+      toast(`Exported ${res.trades.length.toLocaleString()} trades`, "success");
+    } catch {
+      toast("Export failed", "error");
+    } finally {
+      setExportingAll(false);
+    }
   }
 
   // Build cumulative P&L data for chart
@@ -192,6 +223,18 @@ export default function Analysis() {
           >
             <Download size={11} />
             Export CSV
+          </button>
+          <button
+            onClick={exportAllCsv}
+            disabled={exportingAll || total === 0}
+            className="flex items-center gap-1.5 px-3 py-1 text-xs bg-bg-panel border border-border rounded hover:bg-bg-active transition-colors disabled:opacity-40"
+          >
+            {exportingAll ? (
+              <Loader2 size={11} className="animate-spin" />
+            ) : (
+              <Download size={11} />
+            )}
+            Export All
           </button>
         </div>
       </div>

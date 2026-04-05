@@ -84,6 +84,7 @@ export interface BacktestResults {
   worst_trade_sol: number;
   avg_spread_bps: number;
   trades: TradeRow[];
+  message?: string;
 }
 
 export interface AnalysisSummary {
@@ -103,4 +104,7 @@ export interface WsMessage {
   data: Record<string, unknown>;
   state?: string;
   mode?: string | null;
+  error?: string | null;
+  dex_price?: number | null;
+  cex_price?: number | null;
 }

@@ -44,7 +44,9 @@ Backtesting uses historical price data downloaded from Binance, which is free an
 
 ### Step 1: Download Historical Data
 
-Use the fetch script to pull one day of SOL/USDT 1-second OHLCV data from Binance:
+The easiest way is through the web UI. Go to the **Data** page, find the **Fetch Binance OHLCV** panel, select SOLUSDT as the symbol, set the interval to **1s**, and click **Fetch Binance Data**. The file saves automatically and appears in the file list above.
+
+Alternatively, use the fetch script from the command line:
 
 ```bash
 python scripts/fetch_binance_history.py \
@@ -55,8 +57,6 @@ python scripts/fetch_binance_history.py \
 ```
 
 This writes a Parquet file to `./data/SOLUSDT_1s_1d.parquet`. Parquet is a compressed columnar format — 1 day of 1-second bars is typically around 5 MB.
-
-Alternatively, use the web UI: go to the **Data** tab, select **Fetch Binance OHLCV**, choose SOLUSDT, set the interval to 1s, and click **Fetch**. The file saves to the same `./data/` directory.
 
 ### Step 2: Launch the Web UI
 
@@ -77,14 +77,14 @@ The backtest runs in-process and typically completes in a few seconds for a sing
 
 ### Step 4: Analyze Results
 
-When the backtest finishes, the page displays:
+When the backtest finishes, the Backtest page displays:
 
-- **Summary cards** — total P&L, number of trades, win rate, Sharpe ratio
-- **Equity curve chart** — cumulative P&L over time
-- **Opportunity timeline** — when spreads exceeded the threshold
-- **Trade table** — every individual trade with entry price, exit price, and profit
+- **Summary cards** — total trades, P&L, win rate, average spread
+- **Trade table** — every individual trade with direction, spread, and estimated profit
 
-To export results, click **Download CSV** or **Download Parquet** at the bottom of the trade table.
+Click **Export CSV** to download the trade list. Click **Tweak & Re-run** to go back to the config form and adjust parameters.
+
+For deeper analysis with charts (P&L curve, spread distribution, direction breakdown), open the **Analysis** page and select your results database.
 
 ---
 
@@ -203,7 +203,7 @@ Once you have a backtest running, here is a natural progression:
 
 2. **Tune and re-run** — adjust `min_spread_bps` and `position_size_sol` in the Config page and re-run the backtest to see how the parameter changes affect P&L
 
-3. **Fetch more data** — run `fetch_binance_history.py` with `--days 7` or `--days 30` to backtest over a longer window and reduce the effect of any single day's volatility
+3. **Fetch more data** — on the **Data** page, set Days to 7 or 30 and re-fetch to backtest over a longer window and reduce the effect of any single day's volatility
 
 4. **Set up paper trading** — get a free Helius key, set `HELIUS_API_KEY`, and run the strategy against live data without spending anything
 

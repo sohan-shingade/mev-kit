@@ -428,7 +428,7 @@ export default function Data() {
                   onChange={(e) => setBinanceForm((f) => ({ ...f, interval: e.target.value }))}
                   className={inputCls}
                 >
-                  {["1m", "5m", "15m", "1h", "4h", "1d"].map((i) => (
+                  {["1s", "1m", "5m", "15m", "1h", "4h", "1d"].map((i) => (
                     <option key={i} value={i}>{i}</option>
                   ))}
                 </select>

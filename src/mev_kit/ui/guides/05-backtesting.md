@@ -186,13 +186,14 @@ asyncio.run(main())
 
 ### Via Web UI
 
-Navigate to the **Backtest** tab in the mev-kit web UI:
+Navigate to the **Backtest** page in the mev-kit web UI:
 
-1. Select or upload your Parquet data files
-2. Choose a strategy (`cex-dex-arb` or a custom detector)
-3. Set strategy parameters in the form
+1. Under **Data File**, select a Parquet file (use the **Data** page to fetch one if none appear)
+2. Choose a strategy (`CEX-DEX Arb` or a custom detector)
+3. Set strategy parameters (min spread, fee, position size) in the form
 4. Click **Run Backtest**
-5. The results appear in the **Analysis** tab when complete
+5. Results appear on the same page when complete — summary cards at the top, trade table below
+6. Click **Export CSV** to download the trade list, or open the **Analysis** page for charts
 
 ---
 

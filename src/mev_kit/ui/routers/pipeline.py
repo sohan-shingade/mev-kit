@@ -5,8 +5,9 @@ from __future__ import annotations
 import asyncio
 from typing import Any
 
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Request, WebSocket, WebSocketDisconnect
 
+from mev_kit.ui.config_manager import ConfigManager
 from mev_kit.ui.pipeline_manager import PipelineManager
 
 router = APIRouter()
@@ -18,9 +19,29 @@ async def get_status() -> dict[str, Any]:
 
 
 @router.post("/start")
-async def start_pipeline(body: dict[str, Any]) -> dict[str, str]:
+async def start_pipeline(request: Request, body: dict[str, Any]) -> dict[str, str]:
     mode = body.get("mode", "paper")
     config = body.get("config", {})
+
+    # If a config_profile is specified, load the TOML and merge with inline overrides
+    config_profile = body.get("config_profile")
+    if config_profile:
+        try:
+            mgr = ConfigManager(request.app.state.config_dir)
+            toml_config = mgr.load(config_profile)
+            # Flatten nested TOML sections into a single dict for pipeline config
+            merged: dict[str, Any] = {}
+            for key, value in toml_config.items():
+                if isinstance(value, dict):
+                    merged.update(value)
+                else:
+                    merged[key] = value
+            # Inline overrides take precedence over TOML values
+            merged.update(config)
+            config = merged
+        except FileNotFoundError:
+            return {"status": "error", "error": f"Config profile not found: {config_profile}"}
+
     try:
         await PipelineManager.get().start(mode, config)
         return {"status": "started", "mode": mode}
@@ -55,6 +76,7 @@ async def pipeline_ws(websocket: WebSocket) -> None:
                 "data": status.get("metrics", {}),
                 "state": status["state"],
                 "mode": status["mode"],
+                "error": status.get("error"),
             })
             await asyncio.sleep(1)
     except WebSocketDisconnect:

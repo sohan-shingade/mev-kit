@@ -3,7 +3,7 @@ import { get, post } from "../api/client";
 import type { BacktestStatus, DataFile, TradeRow } from "../api/types";
 import DataTable from "../components/common/DataTable";
 import { toast } from "../components/common/Toast";
-import { Play, Square, RotateCcw } from "lucide-react";
+import { Play, Square, RotateCcw, Download, ChevronDown, ChevronUp, Trash2 } from "lucide-react";
 
 interface StrategyOption {
   name: string;
@@ -22,6 +22,40 @@ interface BacktestConfig {
   fee_bps: number;
   position_size_sol: number;
   simulate_before_execute: boolean;
+}
+
+interface RunHistoryEntry {
+  id: string;
+  timestamp: string;
+  strategy: string;
+  data_file: string;
+  min_spread_bps: number;
+  fee_bps: number;
+  position_size_sol: number;
+  total_trades: number;
+  total_profit_sol: number;
+  results: BacktestStatus["results"];
+}
+
+const HISTORY_KEY = "backtest_run_history";
+const MAX_HISTORY = 10;
+
+function loadHistory(): RunHistoryEntry[] {
+  try {
+    const raw = localStorage.getItem(HISTORY_KEY);
+    if (!raw) return [];
+    return JSON.parse(raw) as RunHistoryEntry[];
+  } catch {
+    return [];
+  }
+}
+
+function saveHistory(entries: RunHistoryEntry[]) {
+  try {
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(entries.slice(0, MAX_HISTORY)));
+  } catch {
+    // ignore storage errors
+  }
 }
 
 const TRADE_COLUMNS = [
@@ -51,6 +85,28 @@ function SummaryCard({
   );
 }
 
+function exportTradesToCsv(trades: TradeRow[], filename: string) {
+  if (trades.length === 0) {
+    toast("No trades to export", "warning");
+    return;
+  }
+  const keys = TRADE_COLUMNS.map((c) => c.key);
+  const header = keys.join(",");
+  const rows = trades.map((t) =>
+    keys
+      .map((k) => JSON.stringify((t as unknown as Record<string, unknown>)[k] ?? ""))
+      .join(",")
+  );
+  const csv = [header, ...rows].join("\n");
+  const blob = new Blob([csv], { type: "text/csv" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 export default function Backtest() {
   const [files, setFiles] = useState<DataFile[]>([]);
   const [strategies, setStrategies] = useState<StrategyOption[]>(BUILTIN_STRATEGIES);
@@ -66,6 +122,11 @@ export default function Backtest() {
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [page, setPage] = useState(1);
   const PER_PAGE = 50;
+
+  // Recent runs history
+  const [history, setHistory] = useState<RunHistoryEntry[]>(loadHistory);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [selectedHistoryId, setSelectedHistoryId] = useState<string | null>(null);
 
   useEffect(() => {
     get<DataFile[]>("/api/data/files")
@@ -100,6 +161,26 @@ export default function Backtest() {
           setStatus(s);
           if (s.state !== "running") {
             clearInterval(pollRef.current!);
+            // Save to history if completed with results
+            if (s.state === "completed" && s.results) {
+              const entry: RunHistoryEntry = {
+                id: `${Date.now()}`,
+                timestamp: new Date().toISOString(),
+                strategy: config.strategy,
+                data_file: config.data_file,
+                min_spread_bps: config.min_spread_bps,
+                fee_bps: config.fee_bps,
+                position_size_sol: config.position_size_sol,
+                total_trades: s.results.total_trades,
+                total_profit_sol: s.results.total_profit_sol,
+                results: s.results,
+              };
+              setHistory((prev) => {
+                const updated = [entry, ...prev].slice(0, MAX_HISTORY);
+                saveHistory(updated);
+                return updated;
+              });
+            }
           }
         } catch {
           clearInterval(pollRef.current!);
@@ -109,7 +190,7 @@ export default function Backtest() {
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
     };
-  }, [status.state]);
+  }, [status.state, config]);
 
   async function handleStart() {
     if (!config.data_file) {
@@ -120,6 +201,7 @@ export default function Backtest() {
       await post("/api/backtest/start", config);
       setStatus({ state: "running" });
       setPage(1);
+      setSelectedHistoryId(null);
     } catch {
       toast("Failed to start backtest", "error");
     }
@@ -134,9 +216,26 @@ export default function Backtest() {
   function handleReset() {
     setStatus({ state: "idle" });
     setPage(1);
+    setSelectedHistoryId(null);
   }
 
-  const trades: TradeRow[] = (status.results?.trades ?? []).map((t: TradeRow): TradeRow => ({
+  function handleClearHistory() {
+    setHistory([]);
+    saveHistory([]);
+    setSelectedHistoryId(null);
+  }
+
+  function handleSelectHistoryRun(entry: RunHistoryEntry) {
+    setSelectedHistoryId(entry.id);
+    setStatus({ state: "completed", results: entry.results });
+    setPage(1);
+  }
+
+  // Determine active results (from current run or selected history entry)
+  const activeResults =
+    status.state === "completed" && status.results ? status.results : null;
+
+  const trades: TradeRow[] = (activeResults?.trades ?? []).map((t: TradeRow): TradeRow => ({
     ...t,
     detected_at: t.detected_at ?? t.timestamp,
   }));
@@ -198,21 +297,35 @@ export default function Backtest() {
     );
   }
 
-  if (status.state === "completed" && status.results) {
-    const r = status.results;
+  if (status.state === "completed" && activeResults) {
+    const r = activeResults;
     return (
       <div className="p-4 flex flex-col gap-4">
         <div className="flex items-center justify-between">
           <h1 className="text-sm font-semibold uppercase tracking-wider text-text-secondary">
-            Backtest Complete
+            {selectedHistoryId ? "Backtest (History)" : "Backtest Complete"}
           </h1>
-          <button
-            onClick={handleReset}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-bg-panel border border-border rounded hover:bg-bg-active transition-colors"
-          >
-            <RotateCcw size={12} />
-            Tweak &amp; Re-run
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() =>
+                exportTradesToCsv(
+                  trades,
+                  `backtest_${r.total_trades}trades_${new Date().toISOString().slice(0, 10)}.csv`
+                )
+              }
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-bg-panel border border-border rounded hover:bg-bg-active transition-colors"
+            >
+              <Download size={12} />
+              Export CSV
+            </button>
+            <button
+              onClick={handleReset}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-bg-panel border border-border rounded hover:bg-bg-active transition-colors"
+            >
+              <RotateCcw size={12} />
+              Tweak &amp; Re-run
+            </button>
+          </div>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
           <SummaryCard label="Total Trades" value={r.total_trades.toLocaleString()} />
@@ -247,6 +360,26 @@ export default function Backtest() {
             color="text-accent-red"
           />
         </div>
+
+        {/* Zero-trade explanation */}
+        {r.total_trades === 0 && (
+          <div className="bg-accent-amber/10 border border-accent-amber/40 rounded p-4 flex flex-col gap-2">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-semibold text-accent-amber">
+                No opportunities detected
+              </span>
+            </div>
+            {r.message && (
+              <p className="text-xs text-text-secondary">{r.message}</p>
+            )}
+            <ul className="text-xs text-text-secondary list-disc list-inside space-y-1">
+              <li>Try lowering <span className="font-mono text-accent-amber">min_spread_bps</span> — current value is {config.min_spread_bps} bps. Try 5–10 bps to confirm the pipeline is working.</li>
+              <li>Try a different strategy — the selected strategy may not match the data format.</li>
+              <li>Use a different data file — the current file may cover a low-volatility period with few spread opportunities.</li>
+            </ul>
+          </div>
+        )}
+
         <div className="bg-bg-panel border border-border rounded overflow-hidden">
           <div className="px-3 py-2 border-b border-border">
             <span className="text-[10px] text-text-secondary uppercase tracking-wider">
@@ -382,6 +515,92 @@ export default function Backtest() {
           <Play size={12} />
           Run Backtest
         </button>
+      </div>
+
+      {/* Recent Runs */}
+      <div className="bg-bg-panel border border-border rounded overflow-hidden">
+        <button
+          onClick={() => setHistoryOpen((o) => !o)}
+          className="w-full flex items-center justify-between px-3 py-2 hover:bg-bg-active/30 transition-colors"
+        >
+          <span className="text-[10px] text-text-secondary uppercase tracking-wider font-semibold">
+            Recent Runs ({history.length})
+          </span>
+          <div className="flex items-center gap-2">
+            {history.length > 0 && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleClearHistory();
+                }}
+                className="flex items-center gap-1 px-2 py-0.5 text-[10px] text-accent-red/70 hover:text-accent-red border border-accent-red/20 rounded transition-colors"
+              >
+                <Trash2 size={10} />
+                Clear
+              </button>
+            )}
+            {historyOpen ? (
+              <ChevronUp size={13} className="text-text-secondary" />
+            ) : (
+              <ChevronDown size={13} className="text-text-secondary" />
+            )}
+          </div>
+        </button>
+
+        {historyOpen && (
+          <div className="border-t border-border">
+            {history.length === 0 ? (
+              <div className="px-3 py-4 text-xs text-text-secondary italic text-center">
+                No runs yet — completed runs will appear here
+              </div>
+            ) : (
+              <div className="divide-y divide-border/40">
+                {history.map((entry) => (
+                  <button
+                    key={entry.id}
+                    onClick={() => handleSelectHistoryRun(entry)}
+                    className={`w-full text-left px-3 py-2.5 hover:bg-bg-active/30 transition-colors flex items-center justify-between gap-3 ${
+                      selectedHistoryId === entry.id ? "bg-accent-indigo/10" : ""
+                    }`}
+                  >
+                    <div className="flex flex-col gap-0.5 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-text-primary font-mono truncate">
+                          {entry.strategy}
+                        </span>
+                        <span className="text-[10px] text-text-secondary truncate">
+                          {entry.data_file}
+                        </span>
+                      </div>
+                      <div className="text-[10px] text-text-secondary">
+                        spread≥{entry.min_spread_bps}bps · fee={entry.fee_bps}bps · {entry.position_size_sol}SOL
+                      </div>
+                    </div>
+                    <div className="flex flex-col items-end gap-0.5 shrink-0">
+                      <span
+                        className={`text-xs font-mono font-semibold ${
+                          entry.total_profit_sol >= 0 ? "text-accent-green" : "text-accent-red"
+                        }`}
+                      >
+                        {entry.total_profit_sol >= 0 ? "+" : ""}
+                        {entry.total_profit_sol.toFixed(4)} SOL
+                      </span>
+                      <span className="text-[10px] text-text-secondary">
+                        {entry.total_trades} trades ·{" "}
+                        {new Date(entry.timestamp).toLocaleString(undefined, {
+                          month: "short",
+                          day: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

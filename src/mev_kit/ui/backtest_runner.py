@@ -3,9 +3,13 @@
 from __future__ import annotations
 
 import importlib.util
+import json
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+import aiosqlite
+import polars as pl
 import structlog
 
 from mev_kit.adapters.ingest.parquet_replay import ParquetReplayAdapter
@@ -20,6 +24,40 @@ logger = structlog.get_logger()
 
 # Registry of built-in strategies
 STRATEGIES_DIR = Path(__file__).parent.parent / "strategies"
+
+# Default path for backtest result databases
+DEFAULT_BACKTEST_DB = "./data/backtest_results.db"
+
+
+def detect_source_type(data_path: str) -> str:
+    """Auto-detect source_type from a Parquet file's column schema.
+
+    Returns:
+        "pool" if the file has pool-specific columns (pool_address),
+        "price" if it has OHLCV columns (open, high, low, close),
+        "price" if it has a 'symbol' column with a 'price' column,
+        "pool" as fallback.
+    """
+    try:
+        schema = pl.read_parquet_schema(data_path)
+        columns = set(schema.keys()) if isinstance(schema, dict) else set(schema)
+    except Exception:
+        return "pool"
+
+    # OHLCV data (Binance klines)
+    ohlcv_cols = {"open", "high", "low", "close"}
+    if ohlcv_cols.issubset(columns):
+        return "price"
+
+    # Pool/DEX data
+    if "pool_address" in columns:
+        return "pool"
+
+    # Generic price data (symbol + price)
+    if "symbol" in columns and "price" in columns:
+        return "price"
+
+    return "pool"
 
 
 class BacktestRunner:
@@ -57,9 +95,17 @@ class BacktestRunner:
             circuit_breaker_enabled=False,
         )
 
-        adapter = ParquetReplayAdapter({"path": data_path, "source_type": "pool"})
+        # Auto-detect source type from the Parquet file schema
+        source_type = detect_source_type(data_path)
+        logger.info(
+            "backtest_runner.source_type_detected",
+            data_path=data_path,
+            source_type=source_type,
+        )
+
+        adapter = ParquetReplayAdapter({"path": data_path, "source_type": source_type})
         detector = _load_detector(
-            config.get("strategy", "cex_dex_arb"),
+            config.get("strategy", "price_momentum"),
             {
                 "min_spread_bps": pipeline_config.min_spread_bps,
                 "fee_bps": config.get("fee_bps", 30.0),
@@ -82,6 +128,9 @@ class BacktestRunner:
             await self._pipeline.run()
             self._state = "completed"
             self._results = self._compute_results()
+            # Persist results to SQLite for the Analysis page (Fix 4)
+            db_path = config.get("results_db", DEFAULT_BACKTEST_DB)
+            await self._persist_results_to_sqlite(db_path)
         except Exception as exc:
             self._state = "error"
             self._results = {
@@ -108,6 +157,13 @@ class BacktestRunner:
                 "worst_trade_sol": 0.0,
                 "avg_spread_bps": 0.0,
                 "trades": [],
+                "message": (
+                    "No opportunities detected. This usually means: "
+                    "(1) the strategy requires data columns not present in this file, "
+                    "(2) min_spread_bps is set higher than any spread in the data, "
+                    "or (3) the data window is too short. "
+                    "Try a different strategy or adjust parameters."
+                ),
             }
 
         results = self._sink.results
@@ -127,18 +183,85 @@ class BacktestRunner:
             "trades": results,
         }
 
+    async def _persist_results_to_sqlite(self, db_path: str) -> None:
+        """Write backtest results to SQLite for the Analysis page.
+
+        Uses the same schema as PaperTradeSink so the Analysis
+        endpoints can query backtest and paper-trade results
+        with identical queries.
+        """
+        if not self._sink or not self._sink.results:
+            return
+
+        try:
+            Path(db_path).parent.mkdir(parents=True, exist_ok=True)
+            async with aiosqlite.connect(db_path) as db:
+                await db.execute("""
+                    CREATE TABLE IF NOT EXISTS paper_trades (
+                        id TEXT PRIMARY KEY,
+                        timestamp TEXT NOT NULL,
+                        type TEXT NOT NULL,
+                        direction TEXT NOT NULL,
+                        pair TEXT NOT NULL,
+                        dex TEXT NOT NULL,
+                        dex_price REAL NOT NULL,
+                        reference_price REAL NOT NULL,
+                        spread_bps REAL NOT NULL,
+                        estimated_profit_sol REAL NOT NULL,
+                        simulated_profit_sol REAL NOT NULL,
+                        pool_address TEXT,
+                        detector TEXT,
+                        metadata TEXT
+                    )
+                """)
+
+                for record in self._sink.results:
+                    await db.execute(
+                        """INSERT OR IGNORE INTO paper_trades
+                           (id, timestamp, type, direction, pair, dex, dex_price,
+                            reference_price, spread_bps, estimated_profit_sol,
+                            simulated_profit_sol, pool_address, detector, metadata)
+                           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                        (
+                            record["id"],
+                            record.get("detected_at", datetime.utcnow().isoformat()),
+                            record["type"],
+                            record["direction"],
+                            record["pair"],
+                            record["dex"],
+                            record["dex_price"],
+                            record["reference_price"],
+                            record["spread_bps"],
+                            record["estimated_profit_sol"],
+                            record["simulated_profit_sol"],
+                            record.get("slot", ""),
+                            "backtest",
+                            json.dumps(record),
+                        ),
+                    )
+                await db.commit()
+            logger.info(
+                "backtest_runner.results_persisted",
+                db_path=db_path,
+                trade_count=len(self._sink.results),
+            )
+        except Exception as exc:
+            logger.warning("backtest_runner.persist_failed", error=str(exc))
+
 
 def _load_detector(strategy: str, config: dict) -> Detector:
     """Load a detector by name or file path.
 
     Supports:
         - "cex_dex_arb" — built-in CEX-DEX arb detector
+        - "price_momentum" — single-source price momentum detector
         - "examples/spread_tracker" — example detector
         - "my_detector.py" — user strategy file in strategies dir
     """
     # Built-in strategies by short name
     builtins = {
         "cex_dex_arb": ("mev_kit.strategies.cex_dex_arb", "CEXDEXArbDetector"),
+        "price_momentum": ("mev_kit.strategies.examples.price_momentum", "PriceMomentumDetector"),
         "spread_tracker": ("mev_kit.strategies.examples.spread_tracker", "SpreadTracker"),
         "multi_pool_arb": ("mev_kit.strategies.examples.multi_pool_arb", "MultiPoolArbDetector"),
         "liquidation_detector": ("mev_kit.strategies.examples.liquidation_detector", "LiquidationDetector"),
