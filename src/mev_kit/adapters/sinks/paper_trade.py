@@ -7,7 +7,7 @@ without spending any SOL.
 from __future__ import annotations
 
 import json
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 
 import aiosqlite
@@ -74,7 +74,7 @@ class PaperTradeSink(Sink):
                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     opportunity.id,
-                    datetime.utcnow().isoformat(),
+                    datetime.now(UTC).isoformat(),
                     opportunity.type.value,
                     opportunity.direction.value,
                     opportunity.pair,

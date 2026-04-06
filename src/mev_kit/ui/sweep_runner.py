@@ -227,9 +227,9 @@ class SweepRunner:
                     "drawdown": test_risk.get("max_drawdown_sol", 0),
                 },
                 "overfit_warning": (
-                    train_best.get("sharpe_ratio", 0) > 2 * test_risk.get("sharpe_ratio", 0.001)
-                    if test_risk.get("sharpe_ratio", 0) > 0
-                    else False
+                    (test_risk.get("sharpe_ratio", 0) <= 0 and train_best.get("sharpe_ratio", 0) > 0)
+                    or (test_risk.get("sharpe_ratio", 0) > 0
+                        and train_best.get("sharpe_ratio", 0) > 2 * test_risk.get("sharpe_ratio", 0.001))
                 ),
                 "train_pct": train_pct,
                 "train_rows": split_idx,
@@ -239,13 +239,13 @@ class SweepRunner:
             self._state = "completed"
             self._progress = self._total
 
-            # Clean up temp files
-            for f in [train_path, test_path]:
-                try:
-                    os.unlink(f)
-                except OSError:
-                    pass
-
         except Exception as exc:
             self._state = "error"
             logger.warning("sweep_runner.walk_forward_error", error=str(exc))
+        finally:
+            # Clean up temp files regardless of success/failure
+            for f in [train_path, test_path]:
+                try:
+                    os.unlink(f)
+                except (OSError, UnboundLocalError):
+                    pass

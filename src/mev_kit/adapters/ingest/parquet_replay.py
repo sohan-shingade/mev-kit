@@ -11,7 +11,7 @@ completely free and runs at maximum speed (limited only by CPU).
 from __future__ import annotations
 
 from collections.abc import AsyncIterator
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 
 import polars as pl
@@ -121,8 +121,8 @@ def _parse_timestamp(val: object) -> datetime:
     if isinstance(val, (int, float)):
         # Assume Unix timestamp (seconds or milliseconds)
         if val > 1e12:
-            return datetime.utcfromtimestamp(val / 1000)
-        return datetime.utcfromtimestamp(val)
+            return datetime.fromtimestamp(val / 1000, tz=UTC)
+        return datetime.fromtimestamp(val, tz=UTC)
     if isinstance(val, str):
         return datetime.fromisoformat(val.replace("Z", "+00:00"))
-    return datetime.utcnow()
+    return datetime.now(UTC)

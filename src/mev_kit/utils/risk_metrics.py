@@ -54,9 +54,20 @@ def compute_risk_metrics(trades: list[dict]) -> dict[str, Any]:
     variance = sum((p - mean_pnl) ** 2 for p in pnls) / (len(pnls) - 1)
     std_pnl = math.sqrt(variance) if variance > 0 else 0.001
 
-    # Sharpe ratio (annualized, assuming ~525,600 minutes/year for 1-min data)
-    # Scale factor depends on trade frequency, approximate with sqrt(trades_per_day * 365)
-    trades_per_day = len(pnls) / 7  # assume 7-day dataset
+    # Sharpe ratio (annualized) — derive dataset duration from timestamps
+    timestamps = [t.get("detected_at") or t.get("timestamp", "") for t in trades]
+    valid_ts = sorted([ts for ts in timestamps if ts])
+    if len(valid_ts) >= 2:
+        try:
+            from datetime import datetime as _dt
+            first = _dt.fromisoformat(str(valid_ts[0]).replace("Z", "+00:00"))
+            last = _dt.fromisoformat(str(valid_ts[-1]).replace("Z", "+00:00"))
+            total_days = max(1, (last - first).total_seconds() / 86400)
+        except (ValueError, TypeError):
+            total_days = 7  # fallback
+    else:
+        total_days = 7  # fallback
+    trades_per_day = len(pnls) / total_days
     annualization = math.sqrt(max(1, trades_per_day * 365))
     sharpe = (mean_pnl / std_pnl) * annualization if std_pnl > 0 else 0
 

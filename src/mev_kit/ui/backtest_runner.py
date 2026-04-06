@@ -105,6 +105,20 @@ class BacktestRunner:
 
         self._state = "running"
 
+        try:
+            await self._run_pipeline(data_path, config)
+        except Exception as exc:
+            self._state = "error"
+            self._results = {
+                "total_trades": 0, "total_profit_sol": 0.0,
+                "avg_profit_sol": 0.0, "win_rate": 0.0,
+                "best_trade_sol": 0.0, "worst_trade_sol": 0.0,
+                "avg_spread_bps": 0.0, "trades": [],
+                "error": str(exc),
+            }
+
+    async def _run_pipeline(self, data_path: str, config: dict) -> None:
+        """Internal: build and run the pipeline. Exceptions propagate to run()."""
         # Use FillSimulator for realistic execution modeling
         venue = config.get("venue", "aggregated")
         simulate_fills = config.get("simulate_fills", True)
@@ -191,26 +205,12 @@ class BacktestRunner:
             "position_size_sol": config.get("position_size_sol"),
         }
 
-        try:
-            await self._pipeline.run()
-            self._state = "completed"
-            self._results = self._compute_results()
-            # Persist results to SQLite for the Analysis page (Fix 4)
-            db_path = config.get("results_db", DEFAULT_BACKTEST_DB)
-            await self._persist_results_to_sqlite(db_path)
-        except Exception as exc:
-            self._state = "error"
-            self._results = {
-                "total_trades": 0,
-                "total_profit_sol": 0.0,
-                "avg_profit_sol": 0.0,
-                "win_rate": 0.0,
-                "best_trade_sol": 0.0,
-                "worst_trade_sol": 0.0,
-                "avg_spread_bps": 0.0,
-                "trades": [],
-                "error": str(exc),
-            }
+        await self._pipeline.run()
+        self._state = "completed"
+        self._results = self._compute_results()
+        # Persist results to SQLite for the Analysis page
+        db_path = config.get("results_db", DEFAULT_BACKTEST_DB)
+        await self._persist_results_to_sqlite(db_path)
 
     def _compute_results(self) -> dict[str, Any]:
         """Compute summary from backtest sink results."""
@@ -323,8 +323,7 @@ class BacktestRunner:
                     f"Detection rate {detection_rate * 100:.0f}% is very aggressive -- "
                     "most real strategies detect 1-5% of updates"
                 )
-        if warnings:
-            result["warnings"] = warnings
+        result["warnings"] = warnings
 
         # ── Result versioning (Phase 4) ──
         result["run_id"] = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
@@ -369,7 +368,7 @@ class BacktestRunner:
                 rows = [
                     (
                         r["id"],
-                        r.get("detected_at", datetime.utcnow().isoformat()),
+                        r.get("detected_at", datetime.now(UTC).isoformat()),
                         r["type"],
                         r["direction"],
                         r["pair"],

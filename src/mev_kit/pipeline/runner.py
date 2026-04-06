@@ -14,7 +14,7 @@ It handles:
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime
+from datetime import UTC, datetime
 
 import structlog
 
@@ -76,7 +76,7 @@ class Pipeline:
     async def run(self) -> None:
         """Start the pipeline. Runs until stopped or circuit breaker trips."""
         self._running = True
-        self._start_time = datetime.utcnow()
+        self._start_time = datetime.now(UTC)
         self._adapters_done = 0
 
         logger.info(
@@ -242,7 +242,7 @@ class Pipeline:
 
     def _log_summary(self) -> None:
         """Log a summary of the pipeline run."""
-        elapsed = (datetime.utcnow() - self._start_time).total_seconds() if self._start_time else 0
+        elapsed = (datetime.now(UTC) - self._start_time).total_seconds() if self._start_time else 0
         logger.info(
             "pipeline.summary",
             elapsed_seconds=round(elapsed, 1),

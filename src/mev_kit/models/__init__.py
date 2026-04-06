@@ -7,7 +7,7 @@ No raw dicts. No untyped data.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any
 
@@ -101,7 +101,7 @@ class StateUpdate(BaseModel):
     pool: PoolState | None = None
     price: PriceUpdate | None = None
     raw: dict[str, Any] | None = Field(default=None, exclude=True)
-    received_at: datetime = Field(default_factory=datetime.utcnow)
+    received_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
 # ============================================================
@@ -119,7 +119,7 @@ class Opportunity(BaseModel):
     id: str = Field(description="Unique opportunity ID (uuid4)")
     type: OpportunityType
     direction: Direction
-    detected_at: datetime = Field(default_factory=datetime.utcnow)
+    detected_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
     # Pricing
     dex_price: float
