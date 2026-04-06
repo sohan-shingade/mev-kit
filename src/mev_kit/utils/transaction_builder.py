@@ -455,7 +455,10 @@ async def build_bundle_transactions(
     tip_tx = Transaction.new_unsigned(tip_msg)
     tip_tx.sign([keypair], blockhash)
 
+    # Jito sendBundle expects base58-encoded transactions
+    import base58 as b58
+
     return [
-        base64.b64encode(bytes(swap_tx)).decode(),
-        base64.b64encode(bytes(tip_tx)).decode(),
+        b58.b58encode(bytes(swap_tx)).decode(),
+        b58.b58encode(bytes(tip_tx)).decode(),
     ]
