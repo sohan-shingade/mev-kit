@@ -97,12 +97,14 @@ class RPCSimulator(Simulator):
         """
         from mev_kit.utils.transaction_builder import (
             build_swap_transaction,
-            get_pool_accounts,
+            get_pool_accounts_async,
         )
         from solders.keypair import Keypair
 
-        # Look up pool accounts for this opportunity
-        pool_accounts = get_pool_accounts(opportunity.pool_address)
+        # Look up pool accounts for this opportunity (with on-chain fallback)
+        pool_accounts = await get_pool_accounts_async(
+            opportunity.pool_address, self.rpc_url
+        )
         if pool_accounts is None:
             return {
                 "error": {

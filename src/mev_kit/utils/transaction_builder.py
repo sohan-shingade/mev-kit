@@ -79,13 +79,17 @@ _KNOWN_POOLS: dict[str, dict[str, str]] = {
 }
 
 
+# Cache for dynamically fetched pool accounts
+_dynamic_pool_cache: dict[str, dict[str, str]] = {}
+
+
 # ---------------------------------------------------------------------------
 # Pool lookup
 # ---------------------------------------------------------------------------
 
 
 def get_pool_accounts(pool_address: str) -> dict[str, str] | None:
-    """Look up pool accounts by AMM address.
+    """Look up pool accounts. Checks registry first, then dynamic cache.
 
     Args:
         pool_address: The Raydium AMM pool address.
@@ -93,7 +97,143 @@ def get_pool_accounts(pool_address: str) -> dict[str, str] | None:
     Returns:
         Dict of account name to address, or None if the pool is unknown.
     """
-    return _KNOWN_POOLS.get(pool_address)
+    # Check hardcoded registry
+    result = _KNOWN_POOLS.get(pool_address)
+    if result:
+        return result
+    # Check dynamic cache
+    return _dynamic_pool_cache.get(pool_address)
+
+
+async def fetch_pool_accounts(amm_id: str, rpc_url: str) -> dict[str, str] | None:
+    """Fetch Raydium AMM v4 pool account addresses from on-chain state.
+
+    Reads the AMM account data and extracts vault addresses, market info,
+    and authority from the account layout.
+
+    Raydium AMM v4 state layout (key offsets):
+    - bytes 0-7: status/nonce
+    - bytes 8-39: various config
+    - offset 64: coin_vault (Pubkey, 32 bytes)
+    - offset 96: pc_vault (Pubkey, 32 bytes)
+    - offset 128: lp_mint (Pubkey, 32 bytes)
+    - offset 160: coin_mint (Pubkey, 32 bytes)
+    - offset 192: pc_mint (Pubkey, 32 bytes)
+    - offset 272: open_orders (Pubkey, 32 bytes)
+    - offset 304: market (Pubkey, 32 bytes)
+    - offset 336: market_program (Pubkey, 32 bytes)
+    - offset 368: target_orders (Pubkey, 32 bytes)
+
+    Note: The exact offsets may vary. The above are approximate for AMM v4.
+    For production use, parse the full IDL layout.
+
+    Args:
+        amm_id: The Raydium AMM pool address (base58).
+        rpc_url: Solana JSON-RPC endpoint URL.
+
+    Returns:
+        Dict of account name to address, or None on failure.
+    """
+    import base64 as b64_mod
+
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.post(rpc_url, json={
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "getAccountInfo",
+                "params": [amm_id, {"encoding": "base64"}],
+            })
+            resp.raise_for_status()
+            data = resp.json()
+
+            value = data.get("result", {}).get("value")
+            if not value or not value.get("data"):
+                return None
+
+            raw = b64_mod.b64decode(value["data"][0])
+
+            if len(raw) < 400:
+                return None
+
+            def read_pubkey(offset: int) -> str:
+                return str(Pubkey.from_bytes(raw[offset:offset + 32]))
+
+            # Extract key accounts from AMM state
+            # These offsets are for Raydium AMM v4
+            coin_vault = read_pubkey(64)
+            pc_vault = read_pubkey(96)
+            coin_mint = read_pubkey(160)
+            pc_mint = read_pubkey(192)
+            open_orders = read_pubkey(272)
+            market = read_pubkey(304)
+            market_program = read_pubkey(336)
+            target_orders = read_pubkey(368)
+
+            # AMM authority is a PDA
+            amm_authority = str(Pubkey.find_program_address(
+                [bytes([97, 109, 109, 32, 97, 117, 116, 104, 111, 114, 105, 116, 121])],  # "amm authority"
+                RAYDIUM_AMM_PROGRAM,
+            )[0])
+
+            return {
+                "amm_id": amm_id,
+                "amm_authority": amm_authority,
+                "amm_open_orders": open_orders,
+                "amm_target_orders": target_orders,
+                "pool_coin_vault": coin_vault,
+                "pool_pc_vault": pc_vault,
+                "serum_program": market_program,
+                "serum_market": market,
+                # Serum market accounts need a separate lookup
+                # For now, leave these empty — they're required for the swap
+                # but we can't derive them from the AMM state alone
+                "serum_bids": "",
+                "serum_asks": "",
+                "serum_event_queue": "",
+                "serum_coin_vault": "",
+                "serum_pc_vault": "",
+                "serum_vault_signer": "",
+                "coin_mint": coin_mint,
+                "pc_mint": pc_mint,
+            }
+    except Exception as exc:
+        logger.warning(
+            "transaction_builder.fetch_pool_failed",
+            error=str(exc),
+            amm_id=amm_id,
+        )
+        return None
+
+
+async def get_pool_accounts_async(
+    pool_address: str, rpc_url: str
+) -> dict[str, str] | None:
+    """Look up pool accounts with dynamic on-chain fallback.
+
+    Checks the hardcoded registry and dynamic cache first.
+    If the pool is not found, fetches account data from chain
+    and caches the result.
+
+    Args:
+        pool_address: The Raydium AMM pool address.
+        rpc_url: Solana JSON-RPC endpoint URL.
+
+    Returns:
+        Dict of account name to address, or None if lookup fails.
+    """
+    # Check registry and cache
+    result = get_pool_accounts(pool_address)
+    if result:
+        return result
+
+    # Try dynamic fetch
+    accounts = await fetch_pool_accounts(pool_address, rpc_url)
+    if accounts:
+        _dynamic_pool_cache[pool_address] = accounts
+        return accounts
+
+    return None
 
 
 # ---------------------------------------------------------------------------

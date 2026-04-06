@@ -223,6 +223,31 @@ async def fetch_market(request: Request, body: dict[str, Any]) -> dict[str, Any]
     return {"status": "started", "job_id": job_id}
 
 
+@router.post("/calibrate")
+async def run_calibration(body: dict[str, Any]) -> dict[str, Any]:
+    """Run fill simulator calibration against real order book data.
+
+    Uses Tardis.dev's free first-of-month data to compute empirical
+    spread and depth distributions, then returns calibrated parameters
+    for the fill simulator.
+    """
+    from mev_kit.utils.fill_calibration import (
+        apply_calibration_to_profiles,
+        fetch_calibration_data,
+    )
+
+    symbol = body.get("symbol", "solusdt")
+    date = body.get("date")  # None = auto first of month
+
+    result = await fetch_calibration_data(symbol=symbol, date=date)
+    if result.get("error"):
+        return result
+
+    overrides = apply_calibration_to_profiles(result)
+    result["calibrated_profiles"] = overrides
+    return result
+
+
 @router.post("/prepare")
 async def prepare_data(request: Request, body: dict[str, Any]) -> dict[str, Any]:
     """Merge DEX + CEX data into a time-aligned backtest dataset."""

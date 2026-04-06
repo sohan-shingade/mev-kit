@@ -13,9 +13,11 @@ from mev_kit.utils.transaction_builder import (
     JITO_TIP_ACCOUNTS,
     SOL_USDC_RAYDIUM,
     SWAP_BASE_IN_DISCRIMINATOR,
+    _dynamic_pool_cache,
     build_raydium_swap_ix,
     build_tip_ix,
     get_pool_accounts,
+    get_pool_accounts_async,
 )
 
 
@@ -174,3 +176,81 @@ class TestBuildTipIx:
         ix = build_tip_ix(kp.pubkey(), 10_000)
         assert ix.accounts[0].is_signer is True
         assert ix.accounts[0].is_writable is True
+
+
+# ---------------------------------------------------------------------------
+# get_pool_accounts — dynamic cache
+# ---------------------------------------------------------------------------
+
+
+class TestGetPoolAccountsDynamic:
+    """Tests for pool account lookup including dynamic cache."""
+
+    def test_known_sol_usdc_returns_dict(self) -> None:
+        """SOL/USDC Raydium AMM returns the full account dict."""
+        result = get_pool_accounts(SOL_USDC_RAYDIUM["amm_id"])
+        assert result is not None
+        assert result["amm_id"] == SOL_USDC_RAYDIUM["amm_id"]
+
+    def test_unknown_returns_none(self) -> None:
+        """An unknown pool returns None when not in cache."""
+        assert get_pool_accounts("SomeUnknownAddress123") is None
+
+    def test_returns_from_dynamic_cache(self) -> None:
+        """After populating the dynamic cache, get_pool_accounts finds it."""
+        fake_address = "DynamicTestPool111111111111111111111111111111"
+        fake_accounts = {"amm_id": fake_address, "amm_authority": "auth123"}
+        _dynamic_pool_cache[fake_address] = fake_accounts
+        try:
+            result = get_pool_accounts(fake_address)
+            assert result is not None
+            assert result["amm_id"] == fake_address
+        finally:
+            _dynamic_pool_cache.pop(fake_address, None)
+
+
+# ---------------------------------------------------------------------------
+# get_pool_accounts_async
+# ---------------------------------------------------------------------------
+
+
+class TestGetPoolAccountsAsync:
+    """Tests for async pool account lookup with on-chain fallback."""
+
+    @pytest.mark.asyncio
+    async def test_returns_known_pool_without_rpc(self) -> None:
+        """Known pools are returned without making any RPC call."""
+        result = await get_pool_accounts_async(
+            SOL_USDC_RAYDIUM["amm_id"], "https://fake-rpc.example.com"
+        )
+        assert result is not None
+        assert result["amm_id"] == SOL_USDC_RAYDIUM["amm_id"]
+
+    @pytest.mark.asyncio
+    async def test_returns_from_cache_after_population(self) -> None:
+        """After cache population, returns cached result without RPC."""
+        fake_address = "AsyncCacheTestPool11111111111111111111111111"
+        fake_accounts = {"amm_id": fake_address, "pool_coin_vault": "vault1"}
+        _dynamic_pool_cache[fake_address] = fake_accounts
+        try:
+            result = await get_pool_accounts_async(
+                fake_address, "https://fake-rpc.example.com"
+            )
+            assert result is not None
+            assert result["amm_id"] == fake_address
+        finally:
+            _dynamic_pool_cache.pop(fake_address, None)
+
+    @pytest.mark.asyncio
+    async def test_returns_none_when_fetch_fails(self) -> None:
+        """Returns None when dynamic fetch fails (bad RPC)."""
+        with patch(
+            "mev_kit.utils.transaction_builder.fetch_pool_accounts",
+            new_callable=AsyncMock,
+            return_value=None,
+        ):
+            result = await get_pool_accounts_async(
+                "NonExistentPool111111111111111111111111111111",
+                "https://fake-rpc.example.com",
+            )
+            assert result is None
