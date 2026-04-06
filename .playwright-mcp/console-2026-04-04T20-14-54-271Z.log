@@ -1,0 +1,21 @@
+[  103011ms] [WARNING] The width(-1) and height(-1) of chart should be greater than 0,
+       please check the style of container, or the props width(100%) and height(85%),
+       or add a minWidth(0) or minHeight(undefined) or use aspect(undefined) to control the
+       height and width. @ http://localhost:8080/assets/index-K4unGewV.js:12
+[  119112ms] [ERROR] Failed to load resource: the server responded with a status of 405 (Method Not Allowed) @ http://localhost:8080/api/data/fetch/binance:0
+[  426376ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:8080/api/pipeline/status:0
+[  520002ms] [WARNING] The width(-1) and height(-1) of chart should be greater than 0,
+       please check the style of container, or the props width(100%) and height(85%),
+       or add a minWidth(0) or minHeight(undefined) or use aspect(undefined) to control the
+       height and width. @ http://localhost:8080/assets/index-CMDhaZAG.js:12
+[  521126ms] TypeError: Cannot read properties of undefined (reading 'toLocaleString')
+    at lq (http://localhost:8080/assets/index-CMDhaZAG.js:46:1639)
+    at Co (http://localhost:8080/assets/index-CMDhaZAG.js:8:47544)
+    at gc (http://localhost:8080/assets/index-CMDhaZAG.js:8:70099)
+    at Nc (http://localhost:8080/assets/index-CMDhaZAG.js:8:80376)
+    at Iu (http://localhost:8080/assets/index-CMDhaZAG.js:8:115836)
+    at Nu (http://localhost:8080/assets/index-CMDhaZAG.js:8:114914)
+    at Mu (http://localhost:8080/assets/index-CMDhaZAG.js:8:114751)
+    at bu (http://localhost:8080/assets/index-CMDhaZAG.js:8:111612)
+    at fd (http://localhost:8080/assets/index-CMDhaZAG.js:8:123155)
+    at MessagePort.D (http://localhost:8080/assets/index-CMDhaZAG.js:1:10344)

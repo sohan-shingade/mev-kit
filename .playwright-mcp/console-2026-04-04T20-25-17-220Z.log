@@ -1,0 +1,18 @@
+[  139351ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:8080/api/pipeline/status:0
+[  332390ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:8080/api/pipeline/status:0
+[  334382ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:8080/api/pipeline/status:0
+[  336378ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:8080/api/pipeline/status:0
+[  338379ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:8080/api/pipeline/status:0
+[  340381ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:8080/api/pipeline/status:0
+[  342378ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:8080/api/pipeline/status:0
+[  495373ms] TypeError: Cannot read properties of undefined (reading 'toFixed')
+    at ZK (http://localhost:8080/assets/index-Bogz4dI1.js:45:124123)
+    at Co (http://localhost:8080/assets/index-Bogz4dI1.js:8:47544)
+    at gc (http://localhost:8080/assets/index-Bogz4dI1.js:8:70099)
+    at Nc (http://localhost:8080/assets/index-Bogz4dI1.js:8:80376)
+    at Iu (http://localhost:8080/assets/index-Bogz4dI1.js:8:115836)
+    at Nu (http://localhost:8080/assets/index-Bogz4dI1.js:8:114914)
+    at Mu (http://localhost:8080/assets/index-Bogz4dI1.js:8:114751)
+    at bu (http://localhost:8080/assets/index-Bogz4dI1.js:8:111612)
+    at fd (http://localhost:8080/assets/index-Bogz4dI1.js:8:123155)
+    at MessagePort.D (http://localhost:8080/assets/index-Bogz4dI1.js:1:10344)

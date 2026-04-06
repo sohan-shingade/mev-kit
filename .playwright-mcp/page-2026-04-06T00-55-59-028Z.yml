@@ -1,0 +1,101 @@
+- generic [ref=e1]:
+  - generic [ref=e3]:
+    - generic [ref=e4]:
+      - generic [ref=e5]:
+        - generic [ref=e6]: mev
+        - generic [ref=e7]: kit
+      - generic [ref=e8]:
+        - generic [ref=e9]: ~
+        - generic [ref=e10]: /
+        - generic [ref=e11]: strategies
+        - generic [ref=e12]: ▊
+      - generic [ref=e14]: ⌘K
+    - generic [ref=e15]:
+      - navigation [ref=e16]:
+        - generic [ref=e17]:
+          - link "dashboard 1" [ref=e219] [cursor=pointer]:
+            - /url: /
+            - img [ref=e20]
+            - generic [ref=e25]: dashboard
+            - generic [ref=e26]: "1"
+          - link "> strategies 2" [active] [ref=e2566] [cursor=pointer]:
+            - /url: /strategies
+            - generic [ref=e2567]: ">"
+            - img [ref=e28]
+            - generic [ref=e32]: strategies
+            - generic [ref=e33]: "2"
+          - link "backtest 3" [ref=e34] [cursor=pointer]:
+            - /url: /backtest
+            - img [ref=e35]
+            - generic [ref=e37]: backtest
+            - generic [ref=e38]: "3"
+          - link "config 4" [ref=e39] [cursor=pointer]:
+            - /url: /config
+            - img [ref=e40]
+            - generic [ref=e43]: config
+            - generic [ref=e44]: "4"
+          - link "analysis 5" [ref=e45] [cursor=pointer]:
+            - /url: /analysis
+            - img [ref=e46]
+            - generic [ref=e48]: analysis
+            - generic [ref=e49]: "5"
+          - link "data 6" [ref=e2568] [cursor=pointer]:
+            - /url: /data
+            - img [ref=e51]
+            - generic [ref=e55]: data
+            - generic [ref=e56]: "6"
+          - link "learn 7" [ref=e1812] [cursor=pointer]:
+            - /url: /learn
+            - img [ref=e58]
+            - generic [ref=e60]: learn
+            - generic [ref=e61]: "7"
+        - button [ref=e62]:
+          - img [ref=e63]
+      - main [ref=e65]:
+        - generic [ref=e2569]:
+          - generic [ref=e2570]:
+            - generic [ref=e2571]:
+              - generic [ref=e2572]:
+                - img [ref=e2573]
+                - generic [ref=e2578]: Strategies
+              - button "New Strategy" [ref=e2579]:
+                - img [ref=e2580]
+            - generic [ref=e2581]:
+              - generic [ref=e2582]: Your Strategies
+              - button "cex_dex_arb.py" [ref=e2583]:
+                - img [ref=e2584]
+                - generic [ref=e2589]: cex_dex_arb.py
+              - button "liq_det.py" [ref=e2590]:
+                - img [ref=e2591]
+                - generic [ref=e2596]: liq_det.py
+            - generic [ref=e2597]:
+              - generic [ref=e2598]: Examples
+              - button "liquidation_detector" [ref=e2599]:
+                - img [ref=e2600]
+                - generic [ref=e2603]: liquidation_detector
+              - button "momentum_detector" [ref=e2604]:
+                - img [ref=e2605]
+                - generic [ref=e2608]: momentum_detector
+              - button "multi_pool_arb" [ref=e2609]:
+                - img [ref=e2610]
+                - generic [ref=e2613]: multi_pool_arb
+              - button "price_momentum" [ref=e2614]:
+                - img [ref=e2615]
+                - generic [ref=e2618]: price_momentum
+              - button "spread_tracker" [ref=e2619]:
+                - img [ref=e2620]
+                - generic [ref=e2623]: spread_tracker
+              - button "statistical_arb" [ref=e2624]:
+                - img [ref=e2625]
+                - generic [ref=e2628]: statistical_arb
+          - generic [ref=e2631]:
+            - img [ref=e2632]
+            - paragraph [ref=e2637]: Select a strategy or create a new one
+            - button "New Strategy" [ref=e2638]:
+              - img [ref=e2639]
+              - text: New Strategy
+    - generic [ref=e202]:
+      - generic [ref=e205]: IDLE
+      - generic [ref=e206]: solana
+      - generic [ref=e207]: 17:55:58
+  - generic [ref=e208]: "0"

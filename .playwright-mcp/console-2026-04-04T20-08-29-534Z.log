@@ -1,0 +1,45 @@
+[     433ms] [WARNING] The width(-1) and height(-1) of chart should be greater than 0,
+       please check the style of container, or the props width(100%) and height(85%),
+       or add a minWidth(0) or minHeight(undefined) or use aspect(undefined) to control the
+       height and width. @ http://localhost:8080/assets/index-RvDf8-xC.js:12
+[     609ms] TypeError: Cannot read properties of undefined (reading 'toFixed')
+    at ga (http://localhost:8080/assets/index-RvDf8-xC.js:13:41947)
+    at So (http://localhost:8080/assets/index-RvDf8-xC.js:8:47538)
+    at hc (http://localhost:8080/assets/index-RvDf8-xC.js:8:70090)
+    at Mc (http://localhost:8080/assets/index-RvDf8-xC.js:8:80365)
+    at Iu (http://localhost:8080/assets/index-RvDf8-xC.js:8:115881)
+    at Nu (http://localhost:8080/assets/index-RvDf8-xC.js:8:114945)
+    at Mu (http://localhost:8080/assets/index-RvDf8-xC.js:8:114782)
+    at bu (http://localhost:8080/assets/index-RvDf8-xC.js:8:111632)
+    at md (http://localhost:8080/assets/index-RvDf8-xC.js:8:123324)
+    at ld (http://localhost:8080/assets/index-RvDf8-xC.js:8:121880)
+[   39859ms] [WARNING] The width(-1) and height(-1) of chart should be greater than 0,
+       please check the style of container, or the props width(100%) and height(85%),
+       or add a minWidth(0) or minHeight(undefined) or use aspect(undefined) to control the
+       height and width. @ http://localhost:8080/assets/index-RvDf8-xC.js:12
+[   39964ms] TypeError: Cannot read properties of undefined (reading 'toFixed')
+    at ga (http://localhost:8080/assets/index-RvDf8-xC.js:13:41947)
+    at So (http://localhost:8080/assets/index-RvDf8-xC.js:8:47538)
+    at hc (http://localhost:8080/assets/index-RvDf8-xC.js:8:70090)
+    at Mc (http://localhost:8080/assets/index-RvDf8-xC.js:8:80365)
+    at Iu (http://localhost:8080/assets/index-RvDf8-xC.js:8:115881)
+    at Nu (http://localhost:8080/assets/index-RvDf8-xC.js:8:114945)
+    at Mu (http://localhost:8080/assets/index-RvDf8-xC.js:8:114782)
+    at bu (http://localhost:8080/assets/index-RvDf8-xC.js:8:111632)
+    at pd (http://localhost:8080/assets/index-RvDf8-xC.js:8:123203)
+    at MessagePort.D (http://localhost:8080/assets/index-RvDf8-xC.js:1:10344)
+[   74987ms] [WARNING] The width(-1) and height(-1) of chart should be greater than 0,
+       please check the style of container, or the props width(100%) and height(85%),
+       or add a minWidth(0) or minHeight(undefined) or use aspect(undefined) to control the
+       height and width. @ http://localhost:8080/assets/index-RvDf8-xC.js:12
+[   75121ms] TypeError: Cannot read properties of undefined (reading 'toFixed')
+    at ga (http://localhost:8080/assets/index-RvDf8-xC.js:13:41947)
+    at So (http://localhost:8080/assets/index-RvDf8-xC.js:8:47538)
+    at hc (http://localhost:8080/assets/index-RvDf8-xC.js:8:70090)
+    at Mc (http://localhost:8080/assets/index-RvDf8-xC.js:8:80365)
+    at Iu (http://localhost:8080/assets/index-RvDf8-xC.js:8:115881)
+    at Nu (http://localhost:8080/assets/index-RvDf8-xC.js:8:114945)
+    at Mu (http://localhost:8080/assets/index-RvDf8-xC.js:8:114782)
+    at bu (http://localhost:8080/assets/index-RvDf8-xC.js:8:111632)
+    at pd (http://localhost:8080/assets/index-RvDf8-xC.js:8:123203)
+    at MessagePort.D (http://localhost:8080/assets/index-RvDf8-xC.js:1:10344)

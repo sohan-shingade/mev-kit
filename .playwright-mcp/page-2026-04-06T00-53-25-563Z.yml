@@ -1,0 +1,413 @@
+- generic [ref=e1]:
+  - generic [ref=e3]:
+    - generic [ref=e4]:
+      - generic [ref=e5]:
+        - generic [ref=e6]: mev
+        - generic [ref=e7]: kit
+      - generic [ref=e8]:
+        - generic [ref=e9]: ~
+        - generic [ref=e10]: /
+        - generic [ref=e11]: learn
+        - generic [ref=e12]: ▊
+      - generic [ref=e14]: ⌘K
+    - generic [ref=e15]:
+      - navigation [ref=e16]:
+        - generic [ref=e17]:
+          - link "dashboard 1" [ref=e219] [cursor=pointer]:
+            - /url: /
+            - img [ref=e20]
+            - generic [ref=e25]: dashboard
+            - generic [ref=e26]: "1"
+          - link "strategies 2" [ref=e27] [cursor=pointer]:
+            - /url: /strategies
+            - img [ref=e28]
+            - generic [ref=e32]: strategies
+            - generic [ref=e33]: "2"
+          - link "backtest 3" [ref=e34] [cursor=pointer]:
+            - /url: /backtest
+            - img [ref=e35]
+            - generic [ref=e37]: backtest
+            - generic [ref=e38]: "3"
+          - link "config 4" [ref=e39] [cursor=pointer]:
+            - /url: /config
+            - img [ref=e40]
+            - generic [ref=e43]: config
+            - generic [ref=e44]: "4"
+          - link "analysis 5" [ref=e45] [cursor=pointer]:
+            - /url: /analysis
+            - img [ref=e46]
+            - generic [ref=e48]: analysis
+            - generic [ref=e49]: "5"
+          - link "data 6" [ref=e50] [cursor=pointer]:
+            - /url: /data
+            - img [ref=e51]
+            - generic [ref=e55]: data
+            - generic [ref=e56]: "6"
+          - link "> learn 7" [active] [ref=e220] [cursor=pointer]:
+            - /url: /learn
+            - generic [ref=e221]: ">"
+            - img [ref=e58]
+            - generic [ref=e60]: learn
+            - generic [ref=e61]: "7"
+        - button [ref=e62]:
+          - img [ref=e63]
+      - main [ref=e65]:
+        - generic [ref=e222]:
+          - generic [ref=e223]:
+            - generic [ref=e225]:
+              - img [ref=e226]
+              - generic [ref=e228]: Documentation
+            - generic [ref=e229]:
+              - generic [ref=e230]: Guides
+              - list [ref=e231]:
+                - listitem [ref=e232]:
+                  - button "Getting Started with mev-kit" [ref=e233]:
+                    - img [ref=e234]
+                    - generic [ref=e237]: Getting Started with mev-kit
+                - listitem [ref=e238]:
+                  - 'button "MEV on Solana: Concepts" [ref=e239]':
+                    - img [ref=e240]
+                    - generic [ref=e243]: "MEV on Solana: Concepts"
+                - listitem [ref=e244]:
+                  - button "How CEX-DEX Arbitrage Works" [ref=e245]:
+                    - img [ref=e246]
+                    - generic [ref=e250]: How CEX-DEX Arbitrage Works
+                - listitem [ref=e251]:
+                  - button "The mev-kit Pipeline" [ref=e252]:
+                    - img [ref=e253]
+                    - generic [ref=e257]: The mev-kit Pipeline
+                - listitem [ref=e258]:
+                  - button "Writing a Custom Detector" [ref=e259]:
+                    - img [ref=e260]
+                    - generic [ref=e262]: Writing a Custom Detector
+                - listitem [ref=e263]:
+                  - button "Backtesting Your Strategy" [ref=e264]:
+                    - img [ref=e265]
+                    - generic [ref=e267]: Backtesting Your Strategy
+              - generic [ref=e268]: Reference
+              - button "External Resources" [ref=e269]:
+                - img [ref=e270]
+                - generic [ref=e274]: External Resources
+          - generic [ref=e276]:
+            - generic [ref=e277]:
+              - generic [ref=e278]: Docs
+              - img [ref=e279]
+              - generic [ref=e281]: Guides
+              - img [ref=e282]
+              - generic [ref=e284]: Getting Started with mev-kit
+            - generic [ref=e285]:
+              - heading "Getting Started with mev-kit" [level=1] [ref=e286]
+              - paragraph [ref=e287]: mev-kit is a Python framework for detecting, simulating, and backtesting MEV (Maximal Extractable Value) strategies on Solana. This guide takes you from a fresh install to a running backtest in under 10 minutes — no API keys required.
+              - separator [ref=e288]
+              - heading "Prerequisites" [level=2] [ref=e289]
+              - list [ref=e290]:
+                - listitem [ref=e291]:
+                  - strong [ref=e292]: Python 3.11+
+                  - text: — check with
+                  - code [ref=e293]: python --version
+                - listitem [ref=e294]:
+                  - strong [ref=e295]: A terminal
+                  - text: — bash, zsh, or PowerShell all work
+                - listitem [ref=e296]:
+                  - strong [ref=e297]: A free Helius API key
+                  - text: — only needed for paper trading and live mode, not backtesting
+              - paragraph [ref=e298]: No paid subscriptions, no blockchain node, no wallet required to get started.
+              - separator [ref=e299]
+              - heading "Installation" [level=2] [ref=e300]
+              - paragraph [ref=e301]: "Install from PyPI:"
+              - code [ref=e304]: pip install mev-kit
+              - paragraph [ref=e305]: "Or install from source for the latest development version:"
+              - code [ref=e308]: git clone https://github.com/your-org/mev-kit cd mev-kit pip install -e ".[dev]"
+              - paragraph [ref=e309]: "Verify the install:"
+              - code [ref=e312]: mev-kit --version
+              - separator [ref=e313]
+              - heading "Your First Backtest (No API Keys Needed)" [level=2] [ref=e314]
+              - paragraph [ref=e315]: "Backtesting uses historical price data downloaded from Binance, which is free and requires no account. The full flow is: fetch data → launch the UI → run backtest → view results."
+              - 'heading "Step 1: Download Historical Data" [level=3] [ref=e316]'
+              - paragraph [ref=e317]:
+                - text: The easiest way is through the web UI. Go to the
+                - strong [ref=e318]: Data
+                - text: page, find the
+                - strong [ref=e319]: Fetch Binance OHLCV
+                - text: panel, select SOLUSDT as the symbol, set the interval to
+                - strong [ref=e320]: 1s
+                - text: ", and click"
+                - strong [ref=e321]: Fetch Binance Data
+                - text: . The file saves automatically and appears in the file list above.
+              - paragraph [ref=e322]: "Alternatively, use the fetch script from the command line:"
+              - code [ref=e325]: python scripts/fetch_binance_history.py \ --symbol SOLUSDT \ --interval 1s \ --days 1 \ --output ./data/
+              - paragraph [ref=e326]:
+                - text: This writes a Parquet file to
+                - code [ref=e327]: ./data/SOLUSDT_1s_1d.parquet
+                - text: . Parquet is a compressed columnar format — 1 day of 1-second bars is typically around 5 MB.
+              - 'heading "Step 2: Launch the Web UI" [level=3] [ref=e328]'
+              - code [ref=e331]: mev-kit ui
+              - paragraph [ref=e332]:
+                - text: The UI opens at
+                - link "http://localhost:8080" [ref=e333] [cursor=pointer]:
+                  - /url: http://localhost:8080
+                - text: . Keep this terminal running — it hosts the backend.
+              - 'heading "Step 3: Run a Backtest" [level=3] [ref=e334]'
+              - list [ref=e335]:
+                - listitem [ref=e336]:
+                  - text: Click the
+                  - strong [ref=e337]: Backtest
+                  - text: tab in the top navigation
+                - listitem [ref=e338]:
+                  - text: Under
+                  - strong [ref=e339]: Data File
+                  - text: ", select your downloaded Parquet file"
+                - listitem [ref=e340]: Review the strategy parameters (defaults are reasonable for a first run)
+                - listitem [ref=e341]:
+                  - text: Click
+                  - strong [ref=e342]: Run Backtest
+              - paragraph [ref=e343]: The backtest runs in-process and typically completes in a few seconds for a single day of data.
+              - 'heading "Step 4: Analyze Results" [level=3] [ref=e344]'
+              - paragraph [ref=e345]: "When the backtest finishes, the Backtest page displays:"
+              - list [ref=e346]:
+                - listitem [ref=e347]:
+                  - strong [ref=e348]: Summary cards
+                  - text: — total trades, P&L, win rate, average spread
+                - listitem [ref=e349]:
+                  - strong [ref=e350]: Trade table
+                  - text: — every individual trade with direction, spread, and estimated profit
+              - paragraph [ref=e351]:
+                - text: Click
+                - strong [ref=e352]: Export CSV
+                - text: to download the trade list. Click
+                - strong [ref=e353]: Tweak & Re-run
+                - text: to go back to the config form and adjust parameters.
+              - paragraph [ref=e354]:
+                - text: For deeper analysis with charts (P&L curve, spread distribution, direction breakdown), open the
+                - strong [ref=e355]: Analysis
+                - text: page and select your results database.
+              - separator [ref=e356]
+              - heading "Setting Up API Keys (Paper Trading and Live Mode)" [level=2] [ref=e357]
+              - paragraph [ref=e358]: For backtesting, you don't need any keys. For paper trading against live on-chain data, you need a free Helius key. Live trading additionally requires a wallet keypair.
+              - heading "HELIUS_API_KEY (free tier, required for paper trading)" [level=3] [ref=e359]
+              - list [ref=e360]:
+                - listitem [ref=e361]:
+                  - text: Go to
+                  - link "https://helius.dev" [ref=e362] [cursor=pointer]:
+                    - /url: https://helius.dev
+                - listitem [ref=e363]: Sign up for a free account
+                - listitem [ref=e364]: Create a new project — name it anything
+                - listitem [ref=e365]: Copy the API key from the project dashboard
+              - paragraph [ref=e366]: "Set it in your shell:"
+              - code [ref=e369]: export HELIUS_API_KEY=your-key-here
+              - paragraph [ref=e370]:
+                - text: To persist across sessions, add that line to your
+                - code [ref=e371]: ~/.zshrc
+                - text: or
+                - code [ref=e372]: ~/.bashrc
+                - text: .
+              - heading "HELIUS_RPC_URL (optional)" [level=3] [ref=e373]
+              - paragraph [ref=e374]: "mev-kit auto-constructs this from your API key. You only need to set it if you want to use a custom endpoint:"
+              - code [ref=e377]: export HELIUS_RPC_URL=https://mainnet.helius-rpc.com/?api-key=your-key
+              - heading "WALLET_KEYPAIR_PATH (live mode only)" [level=3] [ref=e378]
+              - paragraph [ref=e379]:
+                - text: Required only when running
+                - code [ref=e380]: mev-kit live
+                - text: ". This should be a path to a Solana keypair JSON file, typically generated with the Solana CLI:"
+              - code [ref=e383]: solana-keygen new --outfile ~/.config/solana/mev-wallet.json export WALLET_KEYPAIR_PATH=/path/to/keypair.json
+              - paragraph [ref=e384]: Never fund this wallet with more than you are prepared to lose. Start with the minimum needed to pay transaction fees.
+              - heading "JITO_BLOCK_ENGINE_URL (live mode only)" [level=3] [ref=e385]
+              - paragraph [ref=e386]: "Defaults to the Jito mainnet block engine. You almost never need to change this:"
+              - code [ref=e389]: export JITO_BLOCK_ENGINE_URL=https://mainnet.block-engine.jito.wtf
+              - heading "Checking Key Status in the UI" [level=3] [ref=e390]
+              - paragraph [ref=e391]:
+                - text: Open the
+                - strong [ref=e392]: Config
+                - text: page and scroll to the
+                - strong [ref=e393]: API Keys
+                - text: section. Each key shows as green (set) or red (missing). This is the fastest way to confirm your environment is wired up correctly before starting a live or paper run.
+              - separator [ref=e394]
+              - heading "Paper Trading Setup" [level=2] [ref=e395]
+              - paragraph [ref=e396]:
+                - text: Once
+                - code [ref=e397]: HELIUS_API_KEY
+                - text: is set, paper trading runs against live on-chain data but executes no real transactions. It's the closest thing to live mode without risking funds.
+              - list [ref=e398]:
+                - listitem [ref=e399]:
+                  - paragraph [ref=e400]:
+                    - text: "Launch the UI:"
+                    - code [ref=e401]: bash mev-kit ui
+                - listitem [ref=e402]:
+                  - paragraph [ref=e403]:
+                    - text: Go to the
+                    - strong [ref=e404]: Dashboard
+                    - text: tab
+                - listitem [ref=e405]:
+                  - paragraph [ref=e406]:
+                    - text: Set the mode dropdown to
+                    - strong [ref=e407]: Paper
+                    - text: ", then click"
+                    - strong [ref=e408]: Start
+                - listitem [ref=e409]:
+                  - paragraph [ref=e410]: The opportunity feed begins populating within seconds as the Helius WebSocket streams pool state updates
+                - listitem [ref=e411]:
+                  - paragraph [ref=e412]:
+                    - text: Adjust strategy parameters live using the
+                    - strong [ref=e413]: Hot Params
+                    - text: panel on the right — changes take effect on the next detection cycle without restarting
+              - separator [ref=e414]
+              - heading "Understanding the Key Config Parameters" [level=2] [ref=e415]
+              - paragraph [ref=e416]:
+                - text: Open the
+                - strong [ref=e417]: Config
+                - text: "tab in the UI for a visual editor. Here are the parameters you'll tune most often:"
+              - table [ref=e418]:
+                - rowgroup [ref=e419]:
+                  - row "Parameter What it controls Where to start" [ref=e420]:
+                    - columnheader "Parameter" [ref=e421]
+                    - columnheader "What it controls" [ref=e422]
+                    - columnheader "Where to start" [ref=e423]
+                - rowgroup [ref=e424]:
+                  - row "min_spread_bps Minimum spread (in basis points) that triggers an opportunity signal. 1 bps = 0.01%. 15–20 bps" [ref=e425]:
+                    - cell "min_spread_bps" [ref=e426]:
+                      - code [ref=e427]: min_spread_bps
+                    - cell "Minimum spread (in basis points) that triggers an opportunity signal. 1 bps = 0.01%." [ref=e428]
+                    - cell "15–20 bps" [ref=e429]
+                  - row "position_size_sol How much SOL to commit per trade. 0.01 SOL" [ref=e430]:
+                    - cell "position_size_sol" [ref=e431]:
+                      - code [ref=e432]: position_size_sol
+                    - cell "How much SOL to commit per trade." [ref=e433]
+                    - cell "0.01 SOL" [ref=e434]
+                  - row "fee_bps DEX swap fee. Raydium v4 is 30 bps; CLMM pools vary. 30" [ref=e435]:
+                    - cell "fee_bps" [ref=e436]:
+                      - code [ref=e437]: fee_bps
+                    - cell "DEX swap fee. Raydium v4 is 30 bps; CLMM pools vary." [ref=e438]
+                    - cell "30" [ref=e439]
+                  - row "circuit_breaker_enabled Auto-pauses the strategy after N consecutive losses. true" [ref=e440]:
+                    - cell "circuit_breaker_enabled" [ref=e441]:
+                      - code [ref=e442]: circuit_breaker_enabled
+                    - cell "Auto-pauses the strategy after N consecutive losses." [ref=e443]
+                    - cell "true" [ref=e444]
+                  - row "circuit_breaker_max_losses Number of consecutive losses before the circuit trips. 3" [ref=e445]:
+                    - cell "circuit_breaker_max_losses" [ref=e446]:
+                      - code [ref=e447]: circuit_breaker_max_losses
+                    - cell "Number of consecutive losses before the circuit trips." [ref=e448]
+                    - cell "3" [ref=e449]
+              - paragraph [ref=e450]:
+                - text: A spread of 15 bps means the CEX price and DEX price differ by 0.15%. After accounting for a 30 bps swap fee on each leg, you need at least 60 bps of spread to be net positive — so
+                - code [ref=e451]: min_spread_bps
+                - text: of 15 is conservative by design.
+              - paragraph [ref=e452]:
+                - text: For the theory behind these numbers, read the
+                - strong [ref=e453]: How CEX-DEX Arbitrage Works
+                - text: guide.
+              - separator [ref=e454]
+              - heading "Common Pool Addresses" [level=2] [ref=e455]
+              - paragraph [ref=e456]: "When configuring which pools to monitor, use these Raydium pool addresses:"
+              - table [ref=e457]:
+                - rowgroup [ref=e458]:
+                  - row "Pool Address" [ref=e459]:
+                    - columnheader "Pool" [ref=e460]
+                    - columnheader "Address" [ref=e461]
+                - rowgroup [ref=e462]:
+                  - row "SOL/USDC (Raydium) 58oQChx4yWmvKdwLLZzBi4ChoCc2fqCUWBkwMihLYQo2" [ref=e463]:
+                    - cell "SOL/USDC (Raydium)" [ref=e464]
+                    - cell "58oQChx4yWmvKdwLLZzBi4ChoCc2fqCUWBkwMihLYQo2" [ref=e465]:
+                      - code [ref=e466]: 58oQChx4yWmvKdwLLZzBi4ChoCc2fqCUWBkwMihLYQo2
+                  - row "SOL/USDT (Raydium) 7XawhbbxtsRcQA8KTkHT9f9nc6d69UwqCDh6U5EEbEmX" [ref=e467]:
+                    - cell "SOL/USDT (Raydium)" [ref=e468]
+                    - cell "7XawhbbxtsRcQA8KTkHT9f9nc6d69UwqCDh6U5EEbEmX" [ref=e469]:
+                      - code [ref=e470]: 7XawhbbxtsRcQA8KTkHT9f9nc6d69UwqCDh6U5EEbEmX
+                  - row "mSOL/SOL (Raydium) EGZ7tiLeH62TPV1gL8WwbXGzEPa9zmcpVnnkPKKnrE2U" [ref=e471]:
+                    - cell "mSOL/SOL (Raydium)" [ref=e472]
+                    - cell "EGZ7tiLeH62TPV1gL8WwbXGzEPa9zmcpVnnkPKKnrE2U" [ref=e473]:
+                      - code [ref=e474]: EGZ7tiLeH62TPV1gL8WwbXGzEPa9zmcpVnnkPKKnrE2U
+                  - row "JitoSOL/SOL (Raydium) 2uoKbPEidR7FBnCHsMPkjRsH4pMtDMgw7f8ickPRPfwK" [ref=e475]:
+                    - cell "JitoSOL/SOL (Raydium)" [ref=e476]
+                    - cell "2uoKbPEidR7FBnCHsMPkjRsH4pMtDMgw7f8ickPRPfwK" [ref=e477]:
+                      - code [ref=e478]: 2uoKbPEidR7FBnCHsMPkjRsH4pMtDMgw7f8ickPRPfwK
+                  - row "RAY/USDC (Raydium) 6UmmUiYoBjSrhakAobJw8BvkmJtDVxaeBtbt7rxWo1mg" [ref=e479]:
+                    - cell "RAY/USDC (Raydium)" [ref=e480]
+                    - cell "6UmmUiYoBjSrhakAobJw8BvkmJtDVxaeBtbt7rxWo1mg" [ref=e481]:
+                      - code [ref=e482]: 6UmmUiYoBjSrhakAobJw8BvkmJtDVxaeBtbt7rxWo1mg
+              - paragraph [ref=e483]: SOL/USDC is the highest-volume pool and the best starting point. It has the most CEX-DEX spread activity and the tightest on-chain liquidity.
+              - paragraph [ref=e484]:
+                - text: You can enter pool addresses directly in the Config page or pass them via the
+                - code [ref=e485]: pool_addresses
+                - text: config key in
+                - code [ref=e486]: config/free.toml
+                - text: .
+              - separator [ref=e487]
+              - heading "Next Steps" [level=2] [ref=e488]
+              - paragraph [ref=e489]: "Once you have a backtest running, here is a natural progression:"
+              - list [ref=e490]:
+                - listitem [ref=e491]:
+                  - paragraph [ref=e492]:
+                    - strong [ref=e493]: Read "How CEX-DEX Arbitrage Works"
+                    - text: — understand why the spread exists, how latency affects profitability, and what the fee math looks like before you interpret backtest results
+                - listitem [ref=e494]:
+                  - paragraph [ref=e495]:
+                    - strong [ref=e496]: Tune and re-run
+                    - text: — adjust
+                    - code [ref=e497]: min_spread_bps
+                    - text: and
+                    - code [ref=e498]: position_size_sol
+                    - text: in the Config page and re-run the backtest to see how the parameter changes affect P&L
+                - listitem [ref=e499]:
+                  - paragraph [ref=e500]:
+                    - strong [ref=e501]: Fetch more data
+                    - text: — on the
+                    - strong [ref=e502]: Data
+                    - text: page, set Days to 7 or 30 and re-fetch to backtest over a longer window and reduce the effect of any single day's volatility
+                - listitem [ref=e503]:
+                  - paragraph [ref=e504]:
+                    - strong [ref=e505]: Set up paper trading
+                    - text: — get a free Helius key, set
+                    - code [ref=e506]: HELIUS_API_KEY
+                    - text: ", and run the strategy against live data without spending anything"
+                - listitem [ref=e507]:
+                  - paragraph [ref=e508]:
+                    - strong [ref=e509]: Read "Writing a Custom Detector"
+                    - text: — build your own strategy on top of the same pipeline abstractions, whether that's liquidation hunting, sandwich detection, or something entirely new
+                - listitem [ref=e510]:
+                  - paragraph [ref=e511]:
+                    - strong [ref=e512]: Check External Resources
+                    - text: — the guides link out to Solana documentation, Jito docs, and Helius API references when you need to go deeper on the infrastructure layer
+              - separator [ref=e513]
+              - heading "Troubleshooting" [level=2] [ref=e514]
+              - paragraph [ref=e515]:
+                - strong [ref=e516]:
+                  - code [ref=e517]: "mev-kit: command not found"
+                - text: — make sure the Python scripts directory is on your PATH. After
+                - code [ref=e518]: pip install mev-kit
+                - text: ", try"
+                - code [ref=e519]: python -m mev_kit
+                - text: as a fallback.
+              - paragraph [ref=e520]:
+                - strong [ref=e521]:
+                  - code [ref=e522]: "ModuleNotFoundError: No module named 'mev_kit'"
+                - text: — you likely have multiple Python environments. Run
+                - code [ref=e523]: which python
+                - text: and
+                - code [ref=e524]: which pip
+                - text: to confirm they point to the same environment.
+              - paragraph [ref=e525]:
+                - strong [ref=e526]:
+                  - code [ref=e527]: Connection refused
+                  - text: on http://localhost:8080
+                - text: — the
+                - code [ref=e528]: mev-kit ui
+                - text: process may have exited. Check the terminal where you launched it for error output.
+              - paragraph [ref=e529]:
+                - strong [ref=e530]: Backtest returns zero trades
+                - text: — the default
+                - code [ref=e531]: min_spread_bps
+                - text: may be too high for the data period you fetched. Try lowering it to 5 bps to confirm the pipeline is working, then raise it back to filter for realistic opportunities.
+              - paragraph [ref=e532]:
+                - strong [ref=e533]: Helius WebSocket disconnects
+                - text: — free tier connections have rate limits. If you see repeated disconnects, check the Helius dashboard for quota usage. The adapter retries with exponential backoff automatically, so brief disconnections self-heal.
+            - 'button "Next MEV on Solana: Concepts" [ref=e536]':
+              - generic [ref=e537]:
+                - generic [ref=e538]: Next
+                - generic [ref=e539]: "MEV on Solana: Concepts"
+              - img [ref=e540]
+    - generic [ref=e202]:
+      - generic [ref=e205]: IDLE
+      - generic [ref=e206]: solana
+      - generic [ref=e207]: 17:53:25
+  - generic [ref=e208]: "0"

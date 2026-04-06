@@ -1,0 +1,230 @@
+- generic [ref=e1]:
+  - generic [ref=e3]:
+    - generic [ref=e4]:
+      - generic [ref=e5]:
+        - generic [ref=e6]: mev
+        - generic [ref=e7]: kit
+      - generic [ref=e8]:
+        - generic [ref=e9]: ~
+        - generic [ref=e10]: /
+        - generic [ref=e11]: learn
+        - generic [ref=e12]: ▊
+      - generic [ref=e14]: ⌘K
+    - generic [ref=e15]:
+      - navigation [ref=e16]:
+        - generic [ref=e17]:
+          - link "dashboard 1" [ref=e219] [cursor=pointer]:
+            - /url: /
+            - img [ref=e20]
+            - generic [ref=e25]: dashboard
+            - generic [ref=e26]: "1"
+          - link "strategies 2" [ref=e27] [cursor=pointer]:
+            - /url: /strategies
+            - img [ref=e28]
+            - generic [ref=e32]: strategies
+            - generic [ref=e33]: "2"
+          - link "backtest 3" [ref=e34] [cursor=pointer]:
+            - /url: /backtest
+            - img [ref=e35]
+            - generic [ref=e37]: backtest
+            - generic [ref=e38]: "3"
+          - link "config 4" [ref=e39] [cursor=pointer]:
+            - /url: /config
+            - img [ref=e40]
+            - generic [ref=e43]: config
+            - generic [ref=e44]: "4"
+          - link "analysis 5" [ref=e45] [cursor=pointer]:
+            - /url: /analysis
+            - img [ref=e46]
+            - generic [ref=e48]: analysis
+            - generic [ref=e49]: "5"
+          - link "data 6" [ref=e50] [cursor=pointer]:
+            - /url: /data
+            - img [ref=e51]
+            - generic [ref=e55]: data
+            - generic [ref=e56]: "6"
+          - link "> learn 7" [ref=e220] [cursor=pointer]:
+            - /url: /learn
+            - generic [ref=e221]: ">"
+            - img [ref=e58]
+            - generic [ref=e60]: learn
+            - generic [ref=e61]: "7"
+        - button [ref=e62]:
+          - img [ref=e63]
+      - main [ref=e65]:
+        - generic [ref=e222]:
+          - generic [ref=e223]:
+            - generic [ref=e225]:
+              - img [ref=e226]
+              - generic [ref=e228]: Documentation
+            - generic [ref=e229]:
+              - generic [ref=e230]: Guides
+              - list [ref=e231]:
+                - listitem [ref=e232]:
+                  - button "Getting Started with mev-kit" [ref=e233]:
+                    - img [ref=e234]
+                    - generic [ref=e237]: Getting Started with mev-kit
+                - listitem [ref=e238]:
+                  - 'button "MEV on Solana: Concepts" [ref=e239]':
+                    - img [ref=e240]
+                    - generic [ref=e243]: "MEV on Solana: Concepts"
+                - listitem [ref=e244]:
+                  - button "How CEX-DEX Arbitrage Works" [ref=e245]:
+                    - img [ref=e246]
+                    - generic [ref=e250]: How CEX-DEX Arbitrage Works
+                - listitem [ref=e251]:
+                  - button "The mev-kit Pipeline" [ref=e252]:
+                    - img [ref=e253]
+                    - generic [ref=e257]: The mev-kit Pipeline
+                - listitem [ref=e258]:
+                  - button "Writing a Custom Detector" [ref=e259]:
+                    - img [ref=e260]
+                    - generic [ref=e262]: Writing a Custom Detector
+                - listitem [ref=e263]:
+                  - button "Backtesting Your Strategy" [ref=e264]:
+                    - img [ref=e265]
+                    - generic [ref=e267]: Backtesting Your Strategy
+              - generic [ref=e268]: Reference
+              - button "External Resources" [active] [ref=e269]:
+                - img [ref=e270]
+                - generic [ref=e274]: External Resources
+          - generic [ref=e276]:
+            - generic [ref=e277]:
+              - generic [ref=e1402]: Docs
+              - img [ref=e1403]
+              - generic [ref=e1405]: External Resources
+            - heading "External Resources" [level=1] [ref=e1643]
+            - paragraph [ref=e1644]: Curated links for the Solana MEV ecosystem — protocols, data sources, and developer tools.
+            - generic [ref=e1645]:
+              - generic [ref=e1646]:
+                - heading "Solana Core" [level=3] [ref=e1648]
+                - list [ref=e1649]:
+                  - listitem [ref=e1650]:
+                    - link "Solana Docs Official Solana developer documentation" [ref=e1651] [cursor=pointer]:
+                      - /url: https://docs.solana.com
+                      - img [ref=e1652]
+                      - generic [ref=e1656]:
+                        - generic [ref=e1657]: Solana Docs
+                        - generic [ref=e1658]: Official Solana developer documentation
+                  - listitem [ref=e1659]:
+                    - link "Solana Cookbook Practical Solana development examples" [ref=e1660] [cursor=pointer]:
+                      - /url: https://solanacookbook.com
+                      - img [ref=e1661]
+                      - generic [ref=e1665]:
+                        - generic [ref=e1666]: Solana Cookbook
+                        - generic [ref=e1667]: Practical Solana development examples
+                  - listitem [ref=e1668]:
+                    - link "Solana Program Library Token, stake, governance programs" [ref=e1669] [cursor=pointer]:
+                      - /url: https://spl.solana.com
+                      - img [ref=e1670]
+                      - generic [ref=e1674]:
+                        - generic [ref=e1675]: Solana Program Library
+                        - generic [ref=e1676]: Token, stake, governance programs
+              - generic [ref=e1677]:
+                - heading "MEV & Block Building" [level=3] [ref=e1679]
+                - list [ref=e1680]:
+                  - listitem [ref=e1681]:
+                    - link "Jito Docs Jito block engine, bundles, and tips" [ref=e1682] [cursor=pointer]:
+                      - /url: https://docs.jito.wtf
+                      - img [ref=e1683]
+                      - generic [ref=e1687]:
+                        - generic [ref=e1688]: Jito Docs
+                        - generic [ref=e1689]: Jito block engine, bundles, and tips
+                  - listitem [ref=e1690]:
+                    - link "Jito MEV Overview State of MEV on Solana" [ref=e1691] [cursor=pointer]:
+                      - /url: https://www.jito.wtf/blog/the-state-of-mev-on-solana
+                      - img [ref=e1692]
+                      - generic [ref=e1696]:
+                        - generic [ref=e1697]: Jito MEV Overview
+                        - generic [ref=e1698]: State of MEV on Solana
+                  - listitem [ref=e1699]:
+                    - link "Flashbots MEV Wiki MEV fundamentals (Ethereum-focused but broadly applicable)" [ref=e1700] [cursor=pointer]:
+                      - /url: https://ethereum.org/en/developers/docs/mev
+                      - img [ref=e1701]
+                      - generic [ref=e1705]:
+                        - generic [ref=e1706]: Flashbots MEV Wiki
+                        - generic [ref=e1707]: MEV fundamentals (Ethereum-focused but broadly applicable)
+              - generic [ref=e1708]:
+                - heading "DEX Protocols" [level=3] [ref=e1710]
+                - list [ref=e1711]:
+                  - listitem [ref=e1712]:
+                    - link "Raydium SDK Official Raydium SDK for pool interactions" [ref=e1713] [cursor=pointer]:
+                      - /url: https://github.com/raydium-io/raydium-sdk-V2
+                      - img [ref=e1714]
+                      - generic [ref=e1718]:
+                        - generic [ref=e1719]: Raydium SDK
+                        - generic [ref=e1720]: Official Raydium SDK for pool interactions
+                  - listitem [ref=e1721]:
+                    - link "Jupiter API Docs Jupiter swap aggregator and price API" [ref=e1722] [cursor=pointer]:
+                      - /url: https://dev.jup.ag
+                      - img [ref=e1723]
+                      - generic [ref=e1727]:
+                        - generic [ref=e1728]: Jupiter API Docs
+                        - generic [ref=e1729]: Jupiter swap aggregator and price API
+                  - listitem [ref=e1730]:
+                    - link "Orca SDK Orca Whirlpools concentrated liquidity" [ref=e1731] [cursor=pointer]:
+                      - /url: https://github.com/orca-so/whirlpools
+                      - img [ref=e1732]
+                      - generic [ref=e1736]:
+                        - generic [ref=e1737]: Orca SDK
+                        - generic [ref=e1738]: Orca Whirlpools concentrated liquidity
+              - generic [ref=e1739]:
+                - heading "Data & RPC" [level=3] [ref=e1741]
+                - list [ref=e1742]:
+                  - listitem [ref=e1743]:
+                    - link "Helius Docs Enhanced RPC, webhooks, and DAS API" [ref=e1744] [cursor=pointer]:
+                      - /url: https://docs.helius.dev
+                      - img [ref=e1745]
+                      - generic [ref=e1749]:
+                        - generic [ref=e1750]: Helius Docs
+                        - generic [ref=e1751]: Enhanced RPC, webhooks, and DAS API
+                  - listitem [ref=e1752]:
+                    - link "Geyser Plugin Interface Real-time account and transaction streaming" [ref=e1753] [cursor=pointer]:
+                      - /url: https://docs.solana.com/developing/plugins/geyser-plugins
+                      - img [ref=e1754]
+                      - generic [ref=e1758]:
+                        - generic [ref=e1759]: Geyser Plugin Interface
+                        - generic [ref=e1760]: Real-time account and transaction streaming
+                  - listitem [ref=e1761]:
+                    - link "Yellowstone gRPC High-performance Solana gRPC streaming" [ref=e1762] [cursor=pointer]:
+                      - /url: https://github.com/rpcpool/yellowstone-grpc
+                      - img [ref=e1763]
+                      - generic [ref=e1767]:
+                        - generic [ref=e1768]: Yellowstone gRPC
+                        - generic [ref=e1769]: High-performance Solana gRPC streaming
+                  - listitem [ref=e1770]:
+                    - link "Binance WS Streams CEX price feeds via WebSocket" [ref=e1771] [cursor=pointer]:
+                      - /url: https://developers.binance.com/docs/binance-spot-api-docs/web-socket-streams
+                      - img [ref=e1772]
+                      - generic [ref=e1776]:
+                        - generic [ref=e1777]: Binance WS Streams
+                        - generic [ref=e1778]: CEX price feeds via WebSocket
+              - generic [ref=e1779]:
+                - heading "Python Libraries" [level=3] [ref=e1781]
+                - list [ref=e1782]:
+                  - listitem [ref=e1783]:
+                    - link "solders Rust-backed Python library for Solana types" [ref=e1784] [cursor=pointer]:
+                      - /url: https://kevinheavey.github.io/solders
+                      - img [ref=e1785]
+                      - generic [ref=e1789]:
+                        - generic [ref=e1790]: solders
+                        - generic [ref=e1791]: Rust-backed Python library for Solana types
+                  - listitem [ref=e1792]:
+                    - link "solana-py Python client for Solana JSON RPC" [ref=e1793] [cursor=pointer]:
+                      - /url: https://michaelhly.github.io/solana-py
+                      - img [ref=e1794]
+                      - generic [ref=e1798]:
+                        - generic [ref=e1799]: solana-py
+                        - generic [ref=e1800]: Python client for Solana JSON RPC
+                  - listitem [ref=e1801]:
+                    - link "Pydantic v2 Data validation used for all mev-kit models" [ref=e1802] [cursor=pointer]:
+                      - /url: https://docs.pydantic.dev/latest
+                      - img [ref=e1803]
+                      - generic [ref=e1807]:
+                        - generic [ref=e1808]: Pydantic v2
+                        - generic [ref=e1809]: Data validation used for all mev-kit models
+    - generic [ref=e202]:
+      - generic [ref=e205]: IDLE
+      - generic [ref=e206]: solana
+      - generic [ref=e207]: 17:54:17
+  - generic [ref=e208]: "0"

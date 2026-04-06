@@ -1,0 +1,107 @@
+- generic [ref=e3]:
+  - generic [ref=e4]:
+    - generic [ref=e5]:
+      - generic [ref=e6]: mev
+      - generic [ref=e7]: kit
+    - generic [ref=e8]:
+      - generic [ref=e9]: ~
+      - generic [ref=e10]: /
+      - generic [ref=e11]: config
+      - generic [ref=e12]: ▊
+    - generic [ref=e14]: ⌘K
+  - generic [ref=e15]:
+    - navigation [ref=e16]:
+      - generic [ref=e17]:
+        - link "dashboard 1" [ref=e18] [cursor=pointer]:
+          - /url: /
+          - img [ref=e19]
+          - generic [ref=e24]: dashboard
+          - generic [ref=e25]: "1"
+        - link "strategies 2" [ref=e26] [cursor=pointer]:
+          - /url: /strategies
+          - img [ref=e27]
+          - generic [ref=e31]: strategies
+          - generic [ref=e32]: "2"
+        - link "backtest 3" [ref=e130] [cursor=pointer]:
+          - /url: /backtest
+          - img [ref=e35]
+          - generic [ref=e37]: backtest
+          - generic [ref=e38]: "3"
+        - link "> config 4" [active] [ref=e179] [cursor=pointer]:
+          - /url: /config
+          - generic [ref=e180]: ">"
+          - img [ref=e40]
+          - generic [ref=e43]: config
+          - generic [ref=e44]: "4"
+        - link "analysis 5" [ref=e181] [cursor=pointer]:
+          - /url: /analysis
+          - img [ref=e46]
+          - generic [ref=e48]: analysis
+          - generic [ref=e49]: "5"
+        - link "data 6" [ref=e50] [cursor=pointer]:
+          - /url: /data
+          - img [ref=e51]
+          - generic [ref=e55]: data
+          - generic [ref=e56]: "6"
+        - link "learn 7" [ref=e57] [cursor=pointer]:
+          - /url: /learn
+          - img [ref=e58]
+          - generic [ref=e60]: learn
+          - generic [ref=e61]: "7"
+      - button [ref=e62]:
+        - img [ref=e63]
+    - main [ref=e65]:
+      - generic [ref=e182]:
+        - generic [ref=e183]:
+          - heading "Configuration" [level=1] [ref=e184]
+          - generic [ref=e185]:
+            - generic [ref=e186]:
+              - img [ref=e187]
+              - combobox [ref=e189]:
+                - option "free" [selected]
+                - option "pro"
+                - option "test"
+                - option "test_audit"
+                - option "testbug"
+                - option "testfix"
+            - button "Save" [ref=e190]:
+              - img [ref=e191]
+              - text: Save
+            - button "Save As" [ref=e195]
+        - generic [ref=e196]:
+          - generic [ref=e197]:
+            - button "Strategy" [ref=e198]:
+              - text: Strategy
+              - img [ref=e199]
+            - generic [ref=e202]:
+              - generic [ref=e203]:
+                - generic [ref=e204]: Min Spread (bps)
+                - spinbutton [ref=e205]: "15"
+              - generic [ref=e206]:
+                - generic [ref=e207]: Fee (bps)
+                - spinbutton [ref=e208]: "30"
+              - generic [ref=e209]:
+                - generic [ref=e210]: Pair
+                - textbox [ref=e211]: SOL/USDC
+              - generic [ref=e212]:
+                - generic [ref=e213]: Position Size (SOL)
+                - spinbutton [ref=e214]: "0.01"
+          - button "Adapters" [ref=e216]:
+            - text: Adapters
+            - img [ref=e217]
+          - button "Simulator" [ref=e220]:
+            - text: Simulator
+            - img [ref=e221]
+          - button "Sink" [ref=e224]:
+            - text: Sink
+            - img [ref=e225]
+          - button "Risk" [ref=e228]:
+            - text: Risk
+            - img [ref=e229]
+          - button "API Keys" [ref=e232]:
+            - text: API Keys
+            - img [ref=e233]
+  - generic [ref=e117]:
+    - generic [ref=e120]: IDLE
+    - generic [ref=e121]: solana
+    - generic [ref=e122]: 18:06:48
