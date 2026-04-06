@@ -16,12 +16,13 @@ Build, backtest, and paper-trade MEV strategies on Solana. The architecture is d
 - **Strategy optimization**: Parameter sweeps, walk-forward validation, result versioning
 - **6 example detectors**: CEX-DEX arb, price momentum, spread tracker, multi-pool arb, liquidation, statistical arb
 
-## What doesn't work yet
+## What's experimental
 
-- **Live execution**: `JitoBundleSink` builds JSON placeholders, not real signed Solana transactions. The `mev-kit live` command exists but submitting bundles will fail.
-- **RPC simulation**: `RPCSimulator` sends an empty transaction to `simulateTransaction`. It needs real transaction construction via `solders` to be meaningful.
-- **Paper trading**: Requires live WebSocket connections (Helius + Binance). Works when API keys are configured but the pipeline may die silently on connection failures.
-- **Fill simulation accuracy**: Slippage uses estimated pool depth (not real on-chain reserves). Accuracy is within ~2-5x of real execution, not exact.
+- **Live execution**: `JitoBundleSink` now builds real signed Solana transactions via `solders` for known pools (SOL/USDC Raydium). Falls back to placeholder for unknown pools. **Use with caution — tested against transaction structure, not against mainnet execution.**
+- **RPC simulation**: `RPCSimulator` builds real Raydium swap transactions and submits to `simulateTransaction`. Works for known pool addresses. Unknown pools return a graceful error.
+- **Paper trading**: Requires live WebSocket connections (Helius + Binance). Works when API keys are configured but may fail silently on connection drops.
+- **Pool coverage**: Transaction construction is currently hardcoded for SOL/USDC Raydium AMM v4. Other pools need their account addresses added to the registry.
+- **Fill simulation accuracy**: Backtesting slippage uses estimated pool depth (not real on-chain reserves). Accuracy is within ~2-5x of real execution.
 
 ## Quick start
 
@@ -183,17 +184,19 @@ This is an alpha research toolkit. Be aware of these gaps:
 |------|--------|-----|
 | **Backtesting** | Working | Fill simulation uses estimated pool depth, not real on-chain reserves. P&L is directionally correct but not exact. |
 | **Paper trading** | Working (with keys) | Requires Helius + Binance WebSocket connections. May fail silently on connection drops. |
-| **Live execution** | Scaffolded, not functional | `JitoBundleSink` builds placeholder JSON objects, not real signed Solana transactions. Do not use with real funds. |
-| **RPC simulation** | Stub | Sends empty transaction to `simulateTransaction`. Needs real tx construction via `solders`. |
-| **Strategy generality** | Limited | CLI commands hardcode `CEXDEXArbDetector` and `SOL/USDC`. The web UI is more flexible. |
+| **Live execution** | Working for SOL/USDC | Real `solders`-built, keypair-signed transactions for Raydium AMM v4. Falls back to placeholder for unknown pools. Not yet mainnet-tested. |
+| **RPC simulation** | Working for known pools | Builds real swap transactions, submits to `simulateTransaction`. Unknown pools return graceful error. |
+| **Strategy generality** | Working | CLI and web UI both use dynamic `_load_detector()`. Any registered strategy works. |
 | **Fill accuracy** | ~2-5x of reality | Slippage, landing rates, and competition modeled with estimates, not empirical data. |
 
 ### Roadmap to production
 
-1. Replace Jito bundle placeholders with real `solders`-built, keypair-signed transactions
-2. Replace RPC simulator stub with real transaction construction + `simulateTransaction`
+1. ~~Replace Jito bundle placeholders with real `solders`-built, keypair-signed transactions~~ ✅ Done
+2. ~~Replace RPC simulator stub with real transaction construction + `simulateTransaction`~~ ✅ Done
 3. Calibrate fill simulation against real execution data (Tardis L2 book snapshots)
-4. Make CLI strategy selection dynamic (not hardcoded to one detector)
+4. ~~Make CLI strategy selection dynamic (not hardcoded to one detector)~~ ✅ Done
+5. Expand pool registry beyond SOL/USDC Raydium (dynamic account lookup via `getAccountInfo`)
+6. End-to-end mainnet test with real Jito bundle submission
 
 ## License
 
