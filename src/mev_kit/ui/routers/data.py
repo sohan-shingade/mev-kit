@@ -801,11 +801,12 @@ async def _run_market_fetch(
 
     from mev_kit.ui.data_prep import prepare_backtest_data
 
-    label = market.get("label", "unknown").replace("/", "_").lower()
-    ts = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
-    fetched_files: dict[str, str] = {}
-
     try:
+        from datetime import timezone as _tz
+
+        label = market.get("label", "unknown").replace("/", "_").lower()
+        ts = datetime.now(_tz.utc).strftime("%Y%m%d_%H%M%S")
+        fetched_files: dict[str, str] = {}
         step = 0
 
         # Step 1: Fetch Binance (CEX)
@@ -817,14 +818,26 @@ async def _run_market_fetch(
             binance_job = f"{job_id}_binance"
             _fetch_jobs[binance_job] = {"status": "running", "progress": 0, "total": 0}
 
-            await _run_binance_fetch(binance_job, symbol, interval, days, data_dir, use_us)
+            try:
+                await asyncio.wait_for(
+                    _run_binance_fetch(binance_job, symbol, interval, days, data_dir, use_us),
+                    timeout=300,  # 5 minute timeout per venue
+                )
+            except asyncio.TimeoutError:
+                _fetch_jobs[binance_job]["status"] = "error"
+                _fetch_jobs[binance_job]["error"] = "Timed out after 5 minutes"
+            except Exception as exc:
+                _fetch_jobs[binance_job]["status"] = "error"
+                _fetch_jobs[binance_job]["error"] = str(exc)
 
             if _fetch_jobs[binance_job]["status"] == "completed":
                 fetched_files["cex"] = _fetch_jobs[binance_job].get("file", "")
                 _fetch_jobs[job_id]["steps"]["binance"] = "completed"
                 _fetch_jobs[job_id]["steps"]["binance_rows"] = _fetch_jobs[binance_job].get("rows", 0)
             else:
-                _fetch_jobs[job_id]["steps"]["binance"] = f"error: {_fetch_jobs[binance_job].get('error', 'unknown')}"
+                err = _fetch_jobs[binance_job].get("error", "unknown")
+                _fetch_jobs[job_id]["steps"]["binance"] = f"error: {err}"
+                logger.warning("market_fetch.binance_failed", error=err)
 
             step += 1
             _fetch_jobs[job_id]["progress"] = step
@@ -834,7 +847,14 @@ async def _run_market_fetch(
             _fetch_jobs[job_id]["steps"]["coinbase"] = "running"
             coinbase_job = f"{job_id}_coinbase"
             _fetch_jobs[coinbase_job] = {"status": "running", "progress": 0, "total": 0}
-            await _run_coinbase_fetch(coinbase_job, market["coinbase_symbol"], interval, days, data_dir)
+            try:
+                await asyncio.wait_for(
+                    _run_coinbase_fetch(coinbase_job, market["coinbase_symbol"], interval, days, data_dir),
+                    timeout=300,
+                )
+            except (asyncio.TimeoutError, Exception) as exc:
+                _fetch_jobs[coinbase_job]["status"] = "error"
+                _fetch_jobs[coinbase_job]["error"] = f"Timed out" if isinstance(exc, asyncio.TimeoutError) else str(exc)
             if _fetch_jobs[coinbase_job]["status"] == "completed":
                 fetched_files["coinbase"] = _fetch_jobs[coinbase_job].get("file", "")
                 _fetch_jobs[job_id]["steps"]["coinbase"] = "completed"
@@ -849,7 +869,14 @@ async def _run_market_fetch(
             _fetch_jobs[job_id]["steps"]["bybit"] = "running"
             bybit_job = f"{job_id}_bybit"
             _fetch_jobs[bybit_job] = {"status": "running", "progress": 0, "total": 0}
-            await _run_bybit_fetch(bybit_job, market["bybit_symbol"], interval, days, data_dir)
+            try:
+                await asyncio.wait_for(
+                    _run_bybit_fetch(bybit_job, market["bybit_symbol"], interval, days, data_dir),
+                    timeout=300,
+                )
+            except (asyncio.TimeoutError, Exception) as exc:
+                _fetch_jobs[bybit_job]["status"] = "error"
+                _fetch_jobs[bybit_job]["error"] = f"Timed out" if isinstance(exc, asyncio.TimeoutError) else str(exc)
             if _fetch_jobs[bybit_job]["status"] == "completed":
                 fetched_files["bybit"] = _fetch_jobs[bybit_job].get("file", "")
                 _fetch_jobs[job_id]["steps"]["bybit"] = "completed"
