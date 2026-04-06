@@ -183,14 +183,24 @@ class BacktestRunner:
                 adapters.append(MergedReplayAdapter({"path": extra_path, "use_sources": config.get("use_sources", [])}))
             else:
                 adapters.append(ParquetReplayAdapter({"path": extra_path, "source_type": extra_type}))
+        # Pass ALL config keys to the detector — strategies may use
+        # custom params beyond min_spread_bps/fee_bps/position_size_sol
+        detector_config = {
+            "min_spread_bps": pipeline_config.min_spread_bps,
+            "fee_bps": config.get("fee_bps", 30.0),
+            "pair": "SOL/USDC",
+            "position_size_sol": pipeline_config.position_size_sol,
+        }
+        # Merge strategy-specific params from config
+        for k, v in config.items():
+            if k not in ("strategy", "data_file", "cex_data_file", "venue",
+                         "simulate_fills", "landing_model", "random_seed",
+                         "simulate_before_execute", "results_db",
+                         "extra_data_files", "use_sources"):
+                detector_config.setdefault(k, v)
         detector = _load_detector(
             config.get("strategy", "price_momentum"),
-            {
-                "min_spread_bps": pipeline_config.min_spread_bps,
-                "fee_bps": config.get("fee_bps", 30.0),
-                "pair": "SOL/USDC",
-                "position_size_sol": pipeline_config.position_size_sol,
-            },
+            detector_config,
         )
         if simulate_fills:
             is_arb = hasattr(detector, "CEX_SOURCES") and hasattr(detector, "DEX_SOURCES")
@@ -446,6 +456,7 @@ def _load_detector(strategy: str, config: dict) -> Detector:
         "liquidation_detector": ("mev_kit.strategies.examples.liquidation_detector", "LiquidationDetector"),
         "statistical_arb": ("mev_kit.strategies.examples.statistical_arb", "StatisticalArbDetector"),
         "momentum_detector": ("mev_kit.strategies.examples.momentum_detector", "MomentumDetector"),
+        "regime_spread": ("mev_kit.strategies.regime_spread", "RegimeSpreadDetector"),
     }
 
     # Clean up the name
