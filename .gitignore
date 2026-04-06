@@ -22,3 +22,10 @@ __pycache__/
 *.pyc
 .pytest_cache/
 .playwright-mcp/
+# Claude scaffolding (keep locally, don't push)
+docs/superpowers/
+.playwright-mcp/
+.impeccable.md
+SUPERPROMPT.md
+.env.example
+config/test*.toml
