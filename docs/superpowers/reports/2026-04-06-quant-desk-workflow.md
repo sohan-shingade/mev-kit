@@ -363,3 +363,144 @@ The volatility breakout detector found 5,159 opportunities in 10K rows (51% dete
 **Total estimated effort to production readiness: 2-3 weeks of focused development.**
 
 The framework's architecture is sound. The issues are implementation bugs and missing analytics features, not fundamental design problems. A quant desk could begin using this for research (data acquisition, strategy prototyping) today, but would need the bugs fixed before trusting backtest results for capital allocation decisions.
+
+---
+
+## 8. Backtest Accuracy & Fill Pipeline: Bugs, Requirements, and Improvements
+
+The backtest P&L numbers are currently misleading. A strategy showing +0.04 SOL profit in backtest would likely lose money live. This section documents exactly where the simulation diverges from reality and what's needed to close the gap.
+
+### 8.1 Current Fill Pipeline Bugs
+
+| # | Severity | Bug | Impact on P&L |
+|---|----------|-----|---------------|
+| F1 | **CRITICAL** | Slippage uses hardcoded pool depth estimates (50K SOL for Raydium) — real pools range from 1K to 500K SOL depending on pair and time of day | Slippage could be 10-100x off for illiquid pairs, making unprofitable strategies look profitable |
+| F2 | **HIGH** | No trade-size-adjusted fee model — Raydium fee is always 25 bps regardless of whether the pool charges 25, 100, or 400 bps (CPMM pools have 4 fee tiers) | Overstates profit on high-fee pools by up to 375 bps per trade |
+| F3 | **HIGH** | Landing rate is static (40%) — real Jito landing rates depend on tip amount, slot congestion, and number of competing searchers for the same opportunity | Static rate can't model competitive dynamics — a 40% rate is optimistic for SOL/USDC (likely 10-20%) and pessimistic for niche pairs (likely 80-95%) |
+| F4 | **HIGH** | State staleness model uses random decay (4-8% per slot) — real staleness depends on pool volume, number of active searchers, and block timing relative to leader schedule | Random noise doesn't capture the bimodal nature of staleness: either another searcher got it first (100% decay) or nobody did (0% decay) |
+| F5 | **MEDIUM** | No gas/priority fee modeling — real execution requires base fee (~5000 lamports) + priority fee (variable) on top of venue fees and tip | Missing ~0.000005 SOL per trade — negligible for large trades, significant for micro-trades |
+| F6 | **MEDIUM** | Orca CLMM approximated as 3x capital efficiency — actual efficiency depends on LP position distribution and ranges from 1x to 50x | Orca slippage estimates could be 15x off in either direction |
+| F7 | **MEDIUM** | CEX order book model uses hardcoded depth ($5M for Binance) — real depth varies by time of day, market conditions, and pair | SOL depth at 3am UTC is ~$500K, not $5M — slippage during off-hours is 10x worse |
+| F8 | **LOW** | No multi-leg execution modeling — CEX-DEX arb requires TWO trades (buy on DEX + sell on CEX, or vice versa) but fill simulator only models ONE leg | Total cost is ~2x what's simulated because both legs have fees, slippage, and failure probability |
+
+### 8.2 Feature Requirements for Honest Backtesting
+
+#### P0: Must-have for any capital deployment decision
+
+| Feature | What it does | Why it matters |
+|---------|-------------|----------------|
+| **Volume-weighted slippage** | Use the candle's `volume` column to estimate liquidity. Higher volume = deeper book = less slippage. Scale pool depth by `volume / avg_volume`. | Current fixed depth is the #1 source of P&L inflation. Volume-weighted depth makes slippage realistic without needing L2 data. |
+| **Dynamic landing rate** | Model landing rate as a function of: (1) opportunity count per hour (more opps = more competition = lower rate), (2) profit size (larger profit = higher tip = higher landing), (3) time of day (more searchers during US/Asia hours). | Static 40% is wrong for every pair. Dynamic rate correctly penalizes strategies that target competitive opportunities. |
+| **Two-leg execution model** | For arb strategies: simulate BOTH the DEX leg and the CEX leg. Each leg has independent fees, slippage, and failure probability. Net profit = DEX output - CEX cost - fees_both - tips. | Current model only simulates one leg, making arb profit look 2x better than reality. |
+| **Execution cost breakdown** | Show per-trade cost breakdown in the trade table: venue_fee, slippage_cost, tip_cost, priority_fee, gas_cost, total_cost, net_profit_after_costs. | Users need to see WHERE their profit is going to optimize. Currently it's a black box. |
+| **Survivorship bias guard** | If a strategy's win rate is >90%, show a warning: "Unusually high win rate may indicate simulation bias. Common causes: (1) using close price as both entry and exit, (2) no fill probability modeling, (3) insufficient latency modeling." | Prevents users from deploying strategies that only look good because the simulation is too generous. |
+
+#### P1: Required for serious strategy evaluation
+
+| Feature | What it does | Why it matters |
+|---------|-------------|----------------|
+| **Mark-to-market equity curve** | Track cumulative P&L over time (not just total). Show max drawdown, drawdown duration, underwater periods. | A strategy that makes +1 SOL total but has a -5 SOL drawdown is unusable. Total P&L alone hides risk. |
+| **Risk-adjusted metrics** | Sharpe ratio (annualized return / volatility), Sortino ratio (downside-only volatility), Calmar ratio (return / max drawdown), profit factor (gross profit / gross loss). | Quants compare strategies by risk-adjusted return, not raw P&L. Without Sharpe, you can't tell if +1 SOL is good or bad relative to the variance. |
+| **Time-of-day analysis** | Break down P&L, trade count, and win rate by hour of day (UTC). Show heatmap. | MEV opportunities cluster around high-activity periods (US market open, Asia morning). Strategies that only work at 3am UTC won't scale. |
+| **Slippage distribution chart** | Histogram of realized slippage per trade. Show mean, median, p95, p99 slippage. | Helps users understand the tail risk. A strategy where 95% of trades have 2 bps slippage but 5% have 50 bps slippage has hidden risk. |
+| **Fee breakdown pie chart** | Show what fraction of gross profit goes to: venue fees, slippage, tips, gas, vs. net profit retained. | Users need to see their "take rate." A strategy that captures 100 bps spread but keeps only 10 bps net is a 10% take rate — the rest is execution cost. |
+
+#### P2: Nice-to-have for advanced research
+
+| Feature | What it does | Why it matters |
+|---------|-------------|----------------|
+| **Pool depth calibration** | Let users input actual pool reserves or fetch them from on-chain snapshots. Use real reserves for constant product slippage instead of estimates. | Eliminates the #1 slippage estimation error. With real reserves, Raydium slippage is exact to the lamport. |
+| **Jito tip optimization** | Model optimal tip as a function of net profit: tip too low = bundle doesn't land, tip too high = no profit. Find the tip that maximizes expected profit × landing probability. | Current fixed 10% tip is suboptimal. Real searchers use dynamic tip algorithms. |
+| **Adverse selection modeling** | When a strategy detects an opportunity that's "too good" (very large spread), model the probability that it's actually a stale quote or a pool being drained (not a real opportunity). | Large apparent spreads often indicate the pool is being exploited by another searcher, or the price feed is delayed. Naive strategies lose money chasing these. |
+| **Partial fill modeling** | For large orders, model the probability of partial fills. On Raydium, you always get filled (AMM). On Orca CLMM, you might not get the full amount if liquidity runs out in the tick range. On CEX, you might get partially filled if the book is thin. | Affects P&L for strategies that trade larger sizes. Currently assumes 100% fill or 0% (binary). |
+| **Cross-validation / walk-forward** | Split data into train/test periods. Optimize params on train data, validate on test data. Report both in-sample and out-of-sample performance. | The #1 guard against overfitting. Without this, every strategy looks good on historical data but fails live. |
+| **Monte Carlo simulation** | Run 1000 random shuffles of the trade sequence to estimate P&L confidence intervals. Report: median P&L, 5th percentile (worst case), 95th percentile (best case). | A strategy with +1 SOL mean but +10/-8 SOL confidence interval is much riskier than one with +0.5 SOL mean and +1/-0 SOL interval. |
+
+### 8.3 Specific Fill Pipeline Improvements
+
+#### Raydium AMM v4 (exact on-chain math — already implemented)
+
+**Current state:** Integer arithmetic for fee and constant product formula is exact. Pool depth is estimated.
+
+**Improvement needed:**
+```python
+# Instead of:
+pool_depth = DEFAULT_POOL_DEPTH_SOL["raydium"]  # hardcoded 50,000
+
+# Use volume-weighted estimate:
+pool_depth = estimate_pool_depth(
+    daily_volume_sol=candle_volume * 1440,  # extrapolate from candle
+    avg_depth_to_volume_ratio=0.05,         # empirical: depth ≈ 5% of daily volume
+)
+# For SOL/USDC with $50M daily volume: depth ≈ $2.5M ≈ 31K SOL
+# For WIF/USDC with $5M daily volume: depth ≈ $250K ≈ 3K SOL
+```
+
+#### Orca Whirlpools (needs major improvement)
+
+**Current state:** Approximated as constant product × 3x efficiency. Inaccurate.
+
+**Improvement needed:** Fetch tick-level liquidity distribution from Orca's on-chain data (via Helius or dedicated endpoint). For each trade, walk through ticks to compute exact output. This is the same algorithm as the on-chain program but executed off-chain against historical tick data.
+
+**Pragmatic alternative:** Use the `volume` column as a proxy for active liquidity. Higher volume periods have more concentrated LP positions, meaning higher effective capital efficiency (5-10x vs 1-2x during quiet periods).
+
+#### Jupiter Aggregated (fundamentally limited)
+
+**Current state:** 4x capital efficiency estimate. Route splitting not modeled.
+
+**Improvement needed:** For backtesting, call the Jupiter Quote API with historical prices to get the actual route and price impact. Cache results to avoid re-querying. This gives the TRUE execution price including all routing optimization.
+
+**Limitation:** The Jupiter API gives you the route for CURRENT liquidity, not historical. You can't query "what route would Jupiter have given on March 15th." So the simulation will always be approximate for Jupiter.
+
+#### CEX Order Book (needs real data)
+
+**Current state:** Hardcoded depth estimates. No real book data unless Tardis/Kaiko is configured.
+
+**Improvement needed:**
+1. Use candle `volume` as depth proxy: `effective_depth_usd = volume_usd * 0.02` (book depth ≈ 2% of intra-candle volume)
+2. Use candle `high - low` range as spread proxy: wider range = more volatile = wider spreads
+3. Add time-of-day adjustment: depth at 3am UTC ≈ 20% of peak depth at 3pm UTC
+
+#### Jito Landing Rate (needs competitive modeling)
+
+**Current state:** Static rate (40%), no competition modeling.
+
+**Improvement needed:**
+```python
+# Dynamic landing rate based on opportunity characteristics
+def estimate_landing_rate(
+    profit_bps: int,
+    opportunities_per_hour: int,
+    time_of_day_utc: int,
+) -> float:
+    # Base rate: inversely proportional to competition
+    competition_factor = min(1.0, 100 / max(1, opportunities_per_hour))
+    
+    # Time-of-day: more searchers during peak hours (14-22 UTC)
+    if 14 <= time_of_day_utc <= 22:
+        time_factor = 0.7  # peak competition
+    elif 6 <= time_of_day_utc <= 14:
+        time_factor = 0.85
+    else:
+        time_factor = 0.95  # off-peak, less competition
+    
+    # Profit-size: larger profits attract more competition
+    profit_factor = max(0.3, 1.0 - profit_bps / 200)
+    
+    return min(0.95, competition_factor * time_factor * profit_factor)
+```
+
+### 8.4 Priority Order for Implementation
+
+| Priority | Item | Impact on P&L accuracy | Effort |
+|----------|------|----------------------|--------|
+| 1 | Volume-weighted pool depth | Fixes 10-100x slippage errors | 1 day |
+| 2 | Two-leg execution model | Fixes 2x profit inflation for arb | 2 days |
+| 3 | Dynamic landing rate | Fixes landing rate being wrong for every pair | 1 day |
+| 4 | Execution cost breakdown per trade | No P&L change but critical for trust | 1 day |
+| 5 | Survivorship bias warnings | No P&L change but prevents bad decisions | 0.5 day |
+| 6 | Mark-to-market equity curve + drawdown | No P&L change but critical for risk evaluation | 2 days |
+| 7 | Risk-adjusted metrics (Sharpe, Sortino) | No P&L change but required for strategy comparison | 1 day |
+| 8 | Time-of-day analysis | Reveals when strategy works and doesn't | 1 day |
+| 9 | Pool depth calibration (real reserves) | Makes Raydium slippage exact | 2 days |
+| 10 | Cross-validation / walk-forward | Guards against overfitting | 5 days |
