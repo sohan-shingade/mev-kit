@@ -110,9 +110,9 @@ class PriceMomentumDetector(Detector):
 
         # Determine direction
         if pct_change > 0:
-            direction = Direction.BUY_DEX  # Momentum up, buy signal
+            direction = Direction.BUY  # Momentum up, buy signal
         else:
-            direction = Direction.SELL_DEX  # Momentum down, sell signal
+            direction = Direction.SELL  # Momentum down, sell signal
 
         spread_bps = abs(pct_change) * 100  # convert % to bps
         estimated_profit = (abs(pct_change) / 100.0) * self.position_size_sol
@@ -128,7 +128,7 @@ class PriceMomentumDetector(Detector):
             spread_bps=round(spread_bps, 2),
             estimated_profit_sol=round(estimated_profit, 6),
             pool_address="",
-            dex="binance",
+            dex=update.source.value,  # reflects actual data source
             pair=self.pair,
             amount_in_lamports=int(self.position_size_sol * 1_000_000_000),
             detector_name=self.name,

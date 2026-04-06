@@ -46,6 +46,8 @@ class Direction(StrEnum):
 
     BUY_DEX = "buy_dex"
     SELL_DEX = "sell_dex"
+    BUY = "buy"
+    SELL = "sell"
 
 
 class ExecutionMode(StrEnum):

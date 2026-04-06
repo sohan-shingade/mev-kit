@@ -132,7 +132,7 @@ class MomentumDetector(Detector):
             return None
         self._ticks_since_signal = 0
 
-        direction = Direction.BUY_DEX if fast_above else Direction.SELL_DEX
+        direction = Direction.BUY if fast_above else Direction.SELL
         estimated_profit = (
             (separation_bps / 10_000) * self.position_size_sol * price
         )
