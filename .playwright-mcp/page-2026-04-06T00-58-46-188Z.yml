@@ -1,0 +1,147 @@
+- generic [ref=e1]:
+  - generic [ref=e3]:
+    - generic [ref=e4]:
+      - generic [ref=e5]:
+        - generic [ref=e6]: mev
+        - generic [ref=e7]: kit
+      - generic [ref=e8]:
+        - generic [ref=e9]: ~
+        - generic [ref=e10]: /
+        - generic [ref=e11]: backtest
+        - generic [ref=e12]: ▊
+      - generic [ref=e14]: ⌘K
+    - generic [ref=e15]:
+      - navigation [ref=e16]:
+        - generic [ref=e17]:
+          - link "dashboard 1" [ref=e219] [cursor=pointer]:
+            - /url: /
+            - img [ref=e20]
+            - generic [ref=e25]: dashboard
+            - generic [ref=e26]: "1"
+          - link "strategies 2" [ref=e3097] [cursor=pointer]:
+            - /url: /strategies
+            - img [ref=e28]
+            - generic [ref=e32]: strategies
+            - generic [ref=e33]: "2"
+          - link "> backtest 3" [active] [ref=e3098] [cursor=pointer]:
+            - /url: /backtest
+            - generic [ref=e3099]: ">"
+            - img [ref=e35]
+            - generic [ref=e37]: backtest
+            - generic [ref=e38]: "3"
+          - link "config 4" [ref=e39] [cursor=pointer]:
+            - /url: /config
+            - img [ref=e40]
+            - generic [ref=e43]: config
+            - generic [ref=e44]: "4"
+          - link "analysis 5" [ref=e45] [cursor=pointer]:
+            - /url: /analysis
+            - img [ref=e46]
+            - generic [ref=e48]: analysis
+            - generic [ref=e49]: "5"
+          - link "data 6" [ref=e2568] [cursor=pointer]:
+            - /url: /data
+            - img [ref=e51]
+            - generic [ref=e55]: data
+            - generic [ref=e56]: "6"
+          - link "learn 7" [ref=e1812] [cursor=pointer]:
+            - /url: /learn
+            - img [ref=e58]
+            - generic [ref=e60]: learn
+            - generic [ref=e61]: "7"
+        - button [ref=e62]:
+          - img [ref=e63]
+      - main [ref=e65]:
+        - generic [ref=e3100]:
+          - heading "Backtest" [level=1] [ref=e3101]
+          - generic [ref=e3102]:
+            - generic [ref=e3103]:
+              - generic [ref=e3104]: Data File
+              - combobox [ref=e3105]:
+                - option "backtest_merged_lagged_20260405_174357.parquet (10,078 rows)" [selected]
+                - option "backtest_sol_usdc_1h_lagged_20260405_181926.parquet (23 rows)"
+                - option "backtest_sol_usdc_1h_lagged_20260406_001335.parquet (23 rows)"
+                - option "backtest_sol_usdc_1h_lagged_20260406_005501.parquet (167 rows)"
+                - option "backtest_sol_usdc_1m_lagged_20260405_182439.parquet (10,078 rows)"
+                - option "backtest_sol_usdc_1m_lagged_20260406_001455.parquet (10,079 rows)"
+                - option "binance_solusdt_1m_20260405_170318.parquet (10,080 rows)"
+                - option "binance_solusdt_1m_20260405_182443.parquet (10,080 rows)"
+                - option "binance_solusdt_1m_20260406_001500.parquet (10,080 rows)"
+                - option "birdeye_sol_usdc_1H_20260405_181927.parquet (24 rows)"
+                - option "birdeye_sol_usdc_1H_20260406_005503.parquet (168 rows)"
+                - option "birdeye_sol_usdc_1m_20260405_170256.parquet (10,080 rows)"
+                - option "birdeye_sol_usdc_1m_20260405_180314.parquet (10,080 rows)"
+                - option "birdeye_sol_usdc_1m_20260405_182523.parquet (10,080 rows)"
+                - option "birdeye_sol_usdc_raydium_1H_20260406_001336.parquet (24 rows)"
+                - option "birdeye_sol_usdc_raydium_1m_20260406_001519.parquet (10,081 rows)"
+                - option "coinbase_sol_usd_1h_20260405_181900.parquet (24 rows)"
+                - option "coinbase_sol_usd_1h_20260405_181926.parquet (24 rows)"
+                - option "coinbase_sol_usd_1h_20260406_001336.parquet (24 rows)"
+                - option "coinbase_sol_usd_1h_20260406_005502.parquet (168 rows)"
+                - option "coinbase_sol_usd_1m_20260405_182503.parquet (10,080 rows)"
+            - generic [ref=e3106]:
+              - generic [ref=e3107]:
+                - generic [ref=e3108]: Dataset contains
+                - generic [ref=e3109]:
+                  - generic [ref=e3110] [cursor=pointer]: Birdeye / DEX aggregated (DEX)
+                  - generic [ref=e3111] [cursor=pointer]: Binance / CEX (CEX)
+                  - generic [ref=e3112]: merged + lag-corrected
+              - generic [ref=e3113]:
+                - generic [ref=e3114]: Strategy requires
+                - generic [ref=e3115]:
+                  - generic [ref=e3116]: ✓ DEX price feed
+                  - generic [ref=e3117]: ✓ CEX price feed
+            - generic [ref=e3118]:
+              - generic [ref=e3119]: Strategy
+              - combobox [ref=e3120]:
+                - option "CEX-DEX Arb"
+                - option "liq det (custom)"
+                - option "volatility breakout (custom)" [selected]
+                - option "liquidation detector (example)"
+                - option "momentum detector (example)"
+                - option "multi pool arb (example)"
+                - option "price momentum (example)"
+                - option "spread tracker (example)"
+                - option "statistical arb (example)"
+            - generic [ref=e3121]:
+              - generic [ref=e3122]:
+                - generic [ref=e3123]: Min Spread (bps)
+                - spinbutton [ref=e3124]: "5"
+                - generic [ref=e3125]: Trigger when spread exceeds this (after fees)
+              - generic [ref=e3126]:
+                - generic [ref=e3127]: Fee (bps)
+                - spinbutton [ref=e3128]: "10"
+                - generic [ref=e3129]: DEX swap cost (Raydium=30, optimized routing=5-10)
+              - generic [ref=e3130]:
+                - generic [ref=e3131]: Position Size (SOL)
+                - spinbutton [ref=e3132]: "0.1"
+              - generic [ref=e3134] [cursor=pointer]:
+                - checkbox "Simulate before execute" [checked] [ref=e3135]
+                - generic [ref=e3136]: Simulate before execute
+            - generic [ref=e3137]:
+              - generic [ref=e3138]: Execution Venue
+              - combobox [ref=e3139]:
+                - option "Raydium AMM (25 bps, ~40% Jito landing)"
+                - option "Orca Whirlpool (30 bps, ~40% Jito landing)"
+                - option "Jupiter Aggregated (0+25 bps venue, ~45% landing)"
+                - option "DEX Aggregated (25 bps, ~40% landing)" [selected]
+                - option "Binance (10 bps taker, ~98% fill, 50ms)"
+                - option "Coinbase (18 bps taker, ~97% fill, 80ms)"
+              - generic [ref=e3140]: Simulates venue-specific slippage, fees, and Jito landing rate
+            - generic [ref=e3141] [cursor=pointer]:
+              - checkbox "Realistic fill simulation (slippage + landing rate)" [checked] [ref=e3142]
+              - generic [ref=e3143]: Realistic fill simulation (slippage + landing rate)
+            - button "Run Backtest" [ref=e3144]:
+              - img [ref=e3145]
+              - text: Run Backtest
+          - button "Recent Runs (0)" [ref=e3148]:
+            - generic [ref=e3149]: Recent Runs (0)
+            - img [ref=e3151]
+    - generic [ref=e202]:
+      - generic [ref=e205]: IDLE
+      - generic [ref=e206]: solana
+      - generic [ref=e207]: 17:58:45
+  - generic [ref=e208]: "0"
+  - generic [ref=e2895]:
+    - alert
+    - alert

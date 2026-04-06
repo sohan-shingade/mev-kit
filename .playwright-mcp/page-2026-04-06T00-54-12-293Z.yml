@@ -1,0 +1,374 @@
+- generic [ref=e1]:
+  - generic [ref=e3]:
+    - generic [ref=e4]:
+      - generic [ref=e5]:
+        - generic [ref=e6]: mev
+        - generic [ref=e7]: kit
+      - generic [ref=e8]:
+        - generic [ref=e9]: ~
+        - generic [ref=e10]: /
+        - generic [ref=e11]: learn
+        - generic [ref=e12]: ▊
+      - generic [ref=e14]: ⌘K
+    - generic [ref=e15]:
+      - navigation [ref=e16]:
+        - generic [ref=e17]:
+          - link "dashboard 1" [ref=e219] [cursor=pointer]:
+            - /url: /
+            - img [ref=e20]
+            - generic [ref=e25]: dashboard
+            - generic [ref=e26]: "1"
+          - link "strategies 2" [ref=e27] [cursor=pointer]:
+            - /url: /strategies
+            - img [ref=e28]
+            - generic [ref=e32]: strategies
+            - generic [ref=e33]: "2"
+          - link "backtest 3" [ref=e34] [cursor=pointer]:
+            - /url: /backtest
+            - img [ref=e35]
+            - generic [ref=e37]: backtest
+            - generic [ref=e38]: "3"
+          - link "config 4" [ref=e39] [cursor=pointer]:
+            - /url: /config
+            - img [ref=e40]
+            - generic [ref=e43]: config
+            - generic [ref=e44]: "4"
+          - link "analysis 5" [ref=e45] [cursor=pointer]:
+            - /url: /analysis
+            - img [ref=e46]
+            - generic [ref=e48]: analysis
+            - generic [ref=e49]: "5"
+          - link "data 6" [ref=e50] [cursor=pointer]:
+            - /url: /data
+            - img [ref=e51]
+            - generic [ref=e55]: data
+            - generic [ref=e56]: "6"
+          - link "> learn 7" [ref=e220] [cursor=pointer]:
+            - /url: /learn
+            - generic [ref=e221]: ">"
+            - img [ref=e58]
+            - generic [ref=e60]: learn
+            - generic [ref=e61]: "7"
+        - button [ref=e62]:
+          - img [ref=e63]
+      - main [ref=e65]:
+        - generic [ref=e222]:
+          - generic [ref=e223]:
+            - generic [ref=e225]:
+              - img [ref=e226]
+              - generic [ref=e228]: Documentation
+            - generic [ref=e229]:
+              - generic [ref=e230]: Guides
+              - list [ref=e231]:
+                - listitem [ref=e232]:
+                  - button "Getting Started with mev-kit" [ref=e233]:
+                    - img [ref=e234]
+                    - generic [ref=e237]: Getting Started with mev-kit
+                - listitem [ref=e238]:
+                  - 'button "MEV on Solana: Concepts" [ref=e239]':
+                    - img [ref=e240]
+                    - generic [ref=e243]: "MEV on Solana: Concepts"
+                - listitem [ref=e244]:
+                  - button "How CEX-DEX Arbitrage Works" [ref=e245]:
+                    - img [ref=e246]
+                    - generic [ref=e250]: How CEX-DEX Arbitrage Works
+                - listitem [ref=e251]:
+                  - button "The mev-kit Pipeline" [ref=e252]:
+                    - img [ref=e253]
+                    - generic [ref=e257]: The mev-kit Pipeline
+                - listitem [ref=e258]:
+                  - button "Writing a Custom Detector" [ref=e259]:
+                    - img [ref=e260]
+                    - generic [ref=e262]: Writing a Custom Detector
+                - listitem [ref=e263]:
+                  - button "Backtesting Your Strategy" [active] [ref=e264]:
+                    - img [ref=e265]
+                    - generic [ref=e267]: Backtesting Your Strategy
+              - generic [ref=e268]: Reference
+              - button "External Resources" [ref=e269]:
+                - img [ref=e270]
+                - generic [ref=e274]: External Resources
+          - generic [ref=e276]:
+            - generic [ref=e277]:
+              - generic [ref=e1402]: Docs
+              - img [ref=e1403]
+              - generic [ref=e1405]: Guides
+              - img [ref=e1406]
+              - generic [ref=e1408]: Backtesting Your Strategy
+            - generic [ref=e1409]:
+              - heading "Backtesting Your Strategy" [level=1] [ref=e1410]
+              - heading "Why Backtest?" [level=2] [ref=e1411]
+              - paragraph [ref=e1412]: "Before committing real capital to a strategy, backtesting lets you answer the most important questions cheaply:"
+              - list [ref=e1413]:
+                - listitem [ref=e1414]: Does this strategy generate net-positive P&L over historical data?
+                - listitem [ref=e1415]:
+                  - text: What are the best parameter values (
+                  - code [ref=e1416]: min_spread_bps
+                  - text: ","
+                  - code [ref=e1417]: position_size_usd
+                  - text: ", etc.)?"
+                - listitem [ref=e1418]: How sensitive is profitability to fee assumptions?
+                - listitem [ref=e1419]: How frequently does the strategy trigger, and what is the distribution of trade sizes?
+                - listitem [ref=e1420]: Does it work in all market conditions, or only during high volatility?
+              - paragraph [ref=e1421]:
+                - text: Backtesting in mev-kit replaces live data sources (
+                - code [ref=e1422]: HeliusWSAdapter
+                - text: ","
+                - code [ref=e1423]: BinanceWSAdapter
+                - text: ) with
+                - code [ref=e1424]: ParquetReplayAdapter
+                - text: ", which reads local Parquet files of historical pool states and price ticks. The strategy, simulator, and result logging are identical to live mode."
+              - separator [ref=e1425]
+              - 'heading "Step 1: Fetch Historical Data" [level=2] [ref=e1426]'
+              - paragraph [ref=e1427]: "You need two Parquet files: 1. Historical Raydium pool states (reserve snapshots at each transaction) 2. Historical Binance price ticks for SOL/USDC"
+              - 'heading "Option A: Fetch Raydium Pool States via Helius" [level=3] [ref=e1428]'
+              - code [ref=e1431]: python scripts/fetch_historical.py \ --pool SOL/USDC \ --days 7 \ --output ./data/
+              - paragraph [ref=e1432]:
+                - text: This script calls the Helius transaction history API to reconstruct the reserve state of the SOL/USDC Raydium pool at each swap. Output is
+                - code [ref=e1433]: ./data/raydium_sol_usdc_7d.parquet
+                - text: .
+              - paragraph [ref=e1434]:
+                - text: "Required environment variable:"
+                - code [ref=e1435]: HELIUS_API_KEY
+                - text: .
+              - paragraph [ref=e1436]: The free Helius tier rate-limits at 10 requests/second. For a 7-day backtest this typically takes 10–30 minutes depending on pool activity.
+              - 'heading "Option B: Fetch Binance Historical Klines" [level=3] [ref=e1437]'
+              - code [ref=e1440]: python scripts/fetch_binance_history.py \ --symbol SOLUSDC \ --interval 1s \ --days 7 \ --output ./data/
+              - paragraph [ref=e1441]:
+                - text: This script calls the Binance REST API for 1-second kline (OHLCV) data, which is a reasonable approximation of the tick stream. Output is
+                - code [ref=e1442]: ./data/binance_solusdc_7d.parquet
+                - text: . No API key required for public kline data.
+              - heading "What the Parquet Files Contain" [level=3] [ref=e1443]
+              - code [ref=e1446]: raydium_sol_usdc_7d.parquet ├── timestamp_ms int64 Unix timestamp in milliseconds ├── pool_address string Raydium pool account address ├── reserve_base float64 SOL reserves at this point in time ├── reserve_quote float64 USDC reserves at this point in time ├── fee_bps int32 Pool fee (30 for Raydium standard) └── slot int64 Solana slot number binance_solusdc_7d.parquet ├── timestamp_ms int64 Kline open timestamp ├── symbol string "SOLUSDC" ├── open float64 ├── high float64 ├── low float64 ├── close float64 Used as CEX price └── volume float64
+              - separator [ref=e1447]
+              - 'heading "Step 2: Configure Strategy Parameters" [level=2] [ref=e1448]'
+              - paragraph [ref=e1449]:
+                - text: Edit
+                - code [ref=e1450]: config/free.toml
+                - text: "(or create a copy for your experiment):"
+              - code [ref=e1453]: "[pipeline.backtest] ingest = \"ParquetReplayAdapter\" simulator = \"RPCSimulator\" # Uses simulateTransaction; set to \"NoopSimulator\" to skip sink = \"BacktestSink\" [ingest.parquet_replay] pool_file = \"./data/raydium_sol_usdc_7d.parquet\" price_file = \"./data/binance_solusdc_7d.parquet\" speed_multiplier = 0 # 0 = as fast as possible; 1 = real-time; 10 = 10x [strategy] class = \"mev_kit.strategies.cex_dex_arb.CEXDEXArbDetector\" [strategy.params] pool_address = \"8HoQnePLqPj4M7PUDzfw8e3Ymdwgc7NaYyHCrP3L7XUZ\" cex_symbol = \"SOLUSDC\" min_spread_bps = 50.0 # Start wide; reduce gradually position_size_usd = 100.0 # Keep small during initial testing fee_bps = 30 # Raydium pool fee cooldown_ms = 1000 # Prevent re-entry within 1 second [backtest] output_file = \"./results/backtest_run_001.parquet\""
+              - heading "Key parameters and their trade-offs" [level=3] [ref=e1454]
+              - table [ref=e1455]:
+                - rowgroup [ref=e1456]:
+                  - row "Parameter Effect of lowering Effect of raising" [ref=e1457]:
+                    - columnheader "Parameter" [ref=e1458]
+                    - columnheader "Effect of lowering" [ref=e1459]
+                    - columnheader "Effect of raising" [ref=e1460]
+                - rowgroup [ref=e1461]:
+                  - row "min_spread_bps More trades, more total P&L, higher false-positive rate Fewer trades, higher confidence per trade" [ref=e1462]:
+                    - cell "min_spread_bps" [ref=e1463]:
+                      - code [ref=e1464]: min_spread_bps
+                    - cell "More trades, more total P&L, higher false-positive rate" [ref=e1465]
+                    - cell "Fewer trades, higher confidence per trade" [ref=e1466]
+                  - row "position_size_usd Lower absolute P&L, lower slippage Higher absolute P&L, higher slippage risk" [ref=e1467]:
+                    - cell "position_size_usd" [ref=e1468]:
+                      - code [ref=e1469]: position_size_usd
+                    - cell "Lower absolute P&L, lower slippage" [ref=e1470]
+                    - cell "Higher absolute P&L, higher slippage risk" [ref=e1471]
+                  - row "cooldown_ms More trades per price spike Fewer duplicate entries" [ref=e1472]:
+                    - cell "cooldown_ms" [ref=e1473]:
+                      - code [ref=e1474]: cooldown_ms
+                    - cell "More trades per price spike" [ref=e1475]
+                    - cell "Fewer duplicate entries" [ref=e1476]
+                  - row "fee_bps Optimistic about costs Pessimistic (conservative)" [ref=e1477]:
+                    - cell "fee_bps" [ref=e1478]:
+                      - code [ref=e1479]: fee_bps
+                    - cell "Optimistic about costs" [ref=e1480]
+                    - cell "Pessimistic (conservative)" [ref=e1481]
+              - paragraph [ref=e1482]:
+                - text: Start with
+                - code [ref=e1483]: min_spread_bps = 80–100
+                - text: for your first run. This catches only the most obvious opportunities and gives you a realistic ceiling on what is achievable. Once the strategy is behaving correctly, reduce the threshold gradually.
+              - separator [ref=e1484]
+              - 'heading "Step 3: Run the Backtest" [level=2] [ref=e1485]'
+              - heading "Via CLI" [level=3] [ref=e1486]
+              - code [ref=e1489]: mev-kit backtest \ --config config/free.toml \ --strategy cex-dex-arb \ --data ./data/raydium_sol_usdc_7d.parquet
+              - paragraph [ref=e1490]:
+                - text: The
+                - code [ref=e1491]: "--data"
+                - text: flag overrides the
+                - code [ref=e1492]: pool_file
+                - text: in config for convenience. Add
+                - code [ref=e1493]: "--price-data"
+                - text: "to also override the price file:"
+              - code [ref=e1496]: mev-kit backtest \ --config config/free.toml \ --strategy cex-dex-arb \ --data ./data/raydium_sol_usdc_7d.parquet \ --price-data ./data/binance_solusdc_7d.parquet \ --output ./results/run_001.parquet
+              - paragraph [ref=e1497]: "While the backtest runs, the CLI prints a live summary:"
+              - code [ref=e1500]: "[00:00:12] Replaying: 2024-03-25 00:00:00 → 2024-03-26 00:00:00 [00:00:12] Updates processed: 14,822 Opportunities detected: 47 [00:00:12] Sim pass rate: 89.4% Estimated P&L: $+3.21 [00:00:13] Replaying: 2024-03-26 00:00:00 → 2024-03-27 00:00:00 ... [00:01:08] Backtest complete. 7 days replayed in 68 seconds. [00:01:08] Results written to ./results/run_001.parquet"
+              - heading "Via Python Script" [level=3] [ref=e1501]
+              - code [ref=e1504]: "# examples/backtest_arb.py import asyncio from mev_kit.pipeline.runner import PipelineRunner from mev_kit.strategies.cex_dex_arb import CEXDEXArbDetector from mev_kit.adapters.ingest.parquet_replay import ParquetReplayAdapter from mev_kit.adapters.simulators.rpc_simulator import RPCSimulator from mev_kit.adapters.sinks.backtest import BacktestSink async def main() -> None: detector = CEXDEXArbDetector( pool_address=\"8HoQnePLqPj4M7PUDzfw8e3Ymdwgc7NaYyHCrP3L7XUZ\", cex_symbol=\"SOLUSDC\", min_spread_bps=50.0, position_size_usd=100.0, ) runner = PipelineRunner( ingest_adapters=[ ParquetReplayAdapter( pool_file=\"./data/raydium_sol_usdc_7d.parquet\", price_file=\"./data/binance_solusdc_7d.parquet\", speed_multiplier=0, # run as fast as possible ) ], detector=detector, simulator=RPCSimulator(), sink=BacktestSink(output_path=\"./results/run_001.parquet\"), ) await runner.run() asyncio.run(main())"
+              - heading "Via Web UI" [level=3] [ref=e1505]
+              - paragraph [ref=e1506]:
+                - text: Navigate to the
+                - strong [ref=e1507]: Backtest
+                - text: "page in the mev-kit web UI:"
+              - list [ref=e1508]:
+                - listitem [ref=e1509]:
+                  - text: Under
+                  - strong [ref=e1510]: Data File
+                  - text: ", select a Parquet file (use the"
+                  - strong [ref=e1511]: Data
+                  - text: page to fetch one if none appear)
+                - listitem [ref=e1512]:
+                  - text: Choose a strategy (
+                  - code [ref=e1513]: CEX-DEX Arb
+                  - text: or a custom detector)
+                - listitem [ref=e1514]: Set strategy parameters (min spread, fee, position size) in the form
+                - listitem [ref=e1515]:
+                  - text: Click
+                  - strong [ref=e1516]: Run Backtest
+                - listitem [ref=e1517]: Results appear on the same page when complete — summary cards at the top, trade table below
+                - listitem [ref=e1518]:
+                  - text: Click
+                  - strong [ref=e1519]: Export CSV
+                  - text: to download the trade list, or open the
+                  - strong [ref=e1520]: Analysis
+                  - text: page for charts
+              - separator [ref=e1521]
+              - 'heading "Step 4: Analyze Results" [level=2] [ref=e1522]'
+              - paragraph [ref=e1523]:
+                - text: The
+                - code [ref=e1524]: BacktestSink
+                - text: writes a Parquet file with one row per opportunity that passed simulation. Each row is a
+                - code [ref=e1525]: PaperTradeRecord
+                - text: .
+              - heading "Using the Analysis Script" [level=3] [ref=e1526]
+              - code [ref=e1529]: python scripts/analyze_results.py \ --input ./results/run_001.parquet \ --report text
+              - paragraph [ref=e1530]: "Output:"
+              - code [ref=e1533]: "=== Backtest Summary === Period: 2024-03-25 → 2024-04-01 (7 days) Total opportunities: 312 Simulated profitable: 279 (89.4%) Opportunities taken: 279 P&L Summary ----------- Total estimated P&L: $+14.73 Average per trade: $+0.053 Best trade: $+0.82 Worst trade: $-0.11 (simulation error corrected post-hoc) Sharpe (daily): 1.42 Trade Distribution ------------------ By direction: BUY_DEX 58.4% | SELL_DEX 41.6% By net spread (bps): p25=18 p50=32 p75=61 p95=124 By hour of day: peak hours 13:00–17:00 UTC Spread Breakdown ---------------- Mean gross spread: 64.2 bps Mean total fees: 44.0 bps Mean net spread: 20.2 bps"
+              - heading "Using the Web UI Analysis Page" [level=3] [ref=e1534]
+              - paragraph [ref=e1535]:
+                - text: The
+                - strong [ref=e1536]: Analysis
+                - text: "page in the mev-kit web UI renders the same data interactively:"
+              - list [ref=e1537]:
+                - listitem [ref=e1538]: P&L curve over time (cumulative and per-trade)
+                - listitem [ref=e1539]: Spread distribution histogram
+                - listitem [ref=e1540]: Heatmap of opportunity frequency by hour and day of week
+                - listitem [ref=e1541]:
+                  - text: Parameter sensitivity sweep (vary
+                  - code [ref=e1542]: min_spread_bps
+                  - text: and see projected P&L)
+              - heading "Using Polars Directly" [level=3] [ref=e1543]
+              - paragraph [ref=e1544]: "The result file is a standard Parquet file — you can query it with Polars or pandas:"
+              - code [ref=e1547]: "import polars as pl df = pl.read_parquet(\"./results/run_001.parquet\") print(df.schema) # Total P&L total_pnl = df[\"estimated_profit_usd\"].sum() print(f\"Total P&L: ${total_pnl:.2f}\") # Trades per day df.with_columns( pl.from_epoch(\"detected_at_ms\", time_unit=\"ms\").dt.date().alias(\"date\") ).group_by(\"date\").agg( pl.len().alias(\"trades\"), pl.sum(\"estimated_profit_usd\").alias(\"daily_pnl\"), ).sort(\"date\").head(10)"
+              - separator [ref=e1548]
+              - 'heading "Step 5: Iterate" [level=2] [ref=e1549]'
+              - paragraph [ref=e1550]: "Backtesting is valuable only through iteration. A single run tells you little. The workflow is:"
+              - list [ref=e1551]:
+                - listitem [ref=e1552]:
+                  - text: Run with wide parameters (high
+                  - code [ref=e1553]: min_spread_bps
+                  - text: ) — establish the ceiling
+                - listitem [ref=e1554]: Tighten parameters one at a time — find the profitability frontier
+                - listitem [ref=e1555]: Test on a different time period — check robustness
+                - listitem [ref=e1556]: Compare against different strategies — rank by Sharpe, not just P&L
+              - heading "Iteration Example" [level=3] [ref=e1557]
+              - code [ref=e1560]: "# Run 1: wide threshold, large position mev-kit backtest --config config/run1.toml --output results/run1.parquet # → P&L: $+14.73 over 7 days, 279 trades # Run 2: tighter threshold # Edit: min_spread_bps = 30 mev-kit backtest --config config/run2.toml --output results/run2.parquet # → P&L: $+19.40 over 7 days, 512 trades (more trades, thinner each) # Run 3: tighter still # Edit: min_spread_bps = 15 mev-kit backtest --config config/run3.toml --output results/run3.parquet # → P&L: $+11.20 over 7 days, 1,241 trades (marginal trades drag down average) # Compare runs python scripts/analyze_results.py \\ --input results/run1.parquet results/run2.parquet results/run3.parquet \\ --compare"
+              - paragraph [ref=e1561]:
+                - text: The sweet spot is typically where
+                - code [ref=e1562]: net_spread_bps
+                - text: distribution shows most trades well above zero, not squeezed against the threshold.
+              - separator [ref=e1563]
+              - heading "Tips and Warnings" [level=2] [ref=e1564]
+              - heading "Start Wide, Reduce Gradually" [level=3] [ref=e1565]
+              - paragraph [ref=e1566]:
+                - text: If you start with
+                - code [ref=e1567]: min_spread_bps = 5
+                - text: and your total fees are 45bps, almost every trade will be unprofitable. Start at 80–100bps and reduce until you find the edge of profitability. The goal is to understand the shape of the distribution before optimizing.
+              - heading "Watch Out for Overfitting" [level=3] [ref=e1568]
+              - paragraph [ref=e1569]:
+                - text: If you tune
+                - code [ref=e1570]: min_spread_bps
+                - text: "to the exact value that maximizes P&L on your 7-day dataset, that value is almost certainly overfit to the specific market conditions of those 7 days. To test robustness:"
+              - list [ref=e1571]:
+                - listitem [ref=e1572]: Hold out the last 2 days of data and do not touch it until your final evaluation
+                - listitem [ref=e1573]: Run backtests on multiple separate weeks
+                - listitem [ref=e1574]: Check if the optimal threshold is consistent across periods
+              - paragraph [ref=e1575]: A strategy that works only on the data it was tuned against is not a strategy — it is a historical fit.
+              - heading "Fee Assumptions Matter" [level=3] [ref=e1576]
+              - paragraph [ref=e1577]: "The biggest source of error in backtesting is fee estimation. Common mistakes:"
+              - list [ref=e1578]:
+                - listitem [ref=e1579]:
+                  - strong [ref=e1580]: Forgetting Binance trading fees
+                  - text: (2–10bps depending on your tier)
+                - listitem [ref=e1581]:
+                  - strong [ref=e1582]: Using the average Jito tip
+                  - text: when in practice you need to pay the competition-clearing tip, which is higher during high-volatility periods
+                - listitem [ref=e1583]:
+                  - strong [ref=e1584]: Ignoring slippage
+                  - text: for larger position sizes
+              - paragraph [ref=e1585]: "It is better to overestimate fees in backtesting and be pleasantly surprised in live trading than the reverse. A common convention is to add a 20% buffer on top of your estimated fee total:"
+              - code [ref=e1588]: "[strategy.params] # Actual fees: 30 (Raydium) + 8 (tip) + 4 (Binance) + 5 (priority) = 47 bps # With 20% buffer: 47 * 1.2 = 56.4 bps → round to 60 fee_bps = 60"
+              - heading "Simulation Latency in Backtesting" [level=3] [ref=e1589]
+              - paragraph [ref=e1590]:
+                - code [ref=e1591]: RPCSimulator
+                - text: calls Helius
+                - code [ref=e1592]: simulateTransaction
+                - text: for each opportunity, which adds real latency to your backtest. For large datasets, this can make a backtest take hours.
+              - paragraph [ref=e1593]:
+                - text: To speed up backtests, use
+                - code [ref=e1594]: NoopSimulator
+                - text: (which passes everything through) for parameter sweeps, then re-run with
+                - code [ref=e1595]: RPCSimulator
+                - text: only for your final candidate configuration.
+              - code [ref=e1598]: "[pipeline.backtest] simulator = \"NoopSimulator\" # Fast, no RPC calls; use for parameter sweeps # simulator = \"RPCSimulator\" # Accurate, slow; use for final validation"
+              - heading "Landing Rate Is Not Modeled in Backtesting" [level=3] [ref=e1599]
+              - paragraph [ref=e1600]: The backtest assumes every opportunity that passes simulation would have been executed successfully. In live trading, the landing rate (fraction of submitted bundles that actually land on-chain) is typically 60–95% depending on competition and tip sizing.
+              - paragraph [ref=e1601]: When extrapolating backtest P&L to expected live P&L, multiply by your expected landing rate. If landing rate is 80%, your expected live P&L is approximately 80% of the backtest figure.
+              - separator [ref=e1602]
+              - heading "Checklist Before Going Live" [level=2] [ref=e1603]
+              - paragraph [ref=e1604]: "Use this checklist after backtesting and before running in paper or live mode:"
+              - list [ref=e1605]:
+                - listitem [ref=e1606]: "[ ] Backtest covers at least 14 days of varied market conditions"
+                - listitem [ref=e1607]: "[ ] Results hold on a held-out validation period not used for tuning"
+                - listitem [ref=e1608]: "[ ] Fee assumptions include Raydium fee, Binance fee, priority fee, and Jito tip"
+                - listitem [ref=e1609]:
+                  - text: "[ ]"
+                  - code [ref=e1610]: min_spread_bps
+                  - text: is comfortably above your total fee estimate
+                - listitem [ref=e1611]: "[ ] Position size is less than 0.5% of pool liquidity (to limit slippage)"
+                - listitem [ref=e1612]:
+                  - text: "[ ] Strategy has been tested with"
+                  - code [ref=e1613]: PaperTradeSink
+                  - text: for at least 24 hours
+                - listitem [ref=e1614]:
+                  - text: "[ ]"
+                  - code [ref=e1615]: WALLET_KEYPAIR_PATH
+                  - text: and
+                  - code [ref=e1616]: JITO_BLOCK_ENGINE_URL
+                  - text: are configured
+                - listitem [ref=e1617]: "[ ] Wallet holds sufficient SOL for fees and position sizing"
+              - separator [ref=e1618]
+              - heading "Further Reading" [level=2] [ref=e1619]
+              - list [ref=e1620]:
+                - listitem [ref=e1621]:
+                  - 'link "Guide 2: How CEX-DEX Arbitrage Works" [ref=e1622] [cursor=pointer]':
+                    - /url: ./02-cex-dex-arb.md
+                - listitem [ref=e1623]:
+                  - 'link "Guide 3: The mev-kit Pipeline" [ref=e1624] [cursor=pointer]':
+                    - /url: ./03-pipeline.md
+                - listitem [ref=e1625]:
+                  - 'link "Guide 4: Writing a Custom Detector" [ref=e1626] [cursor=pointer]':
+                    - /url: ./04-custom-detector.md
+                - listitem [ref=e1627]:
+                  - text: "Source:"
+                  - code [ref=e1628]: scripts/fetch_historical.py
+                - listitem [ref=e1629]:
+                  - text: "Source:"
+                  - code [ref=e1630]: scripts/analyze_results.py
+                - listitem [ref=e1631]:
+                  - text: "Source:"
+                  - code [ref=e1632]: src/mev_kit/adapters/ingest/parquet_replay.py
+                - listitem [ref=e1633]:
+                  - text: "Source:"
+                  - code [ref=e1634]: src/mev_kit/adapters/sinks/backtest.py
+            - button "Previous Writing a Custom Detector" [ref=e1636]:
+              - img [ref=e1637]
+              - generic [ref=e1639]:
+                - generic [ref=e1640]: Previous
+                - generic [ref=e1641]: Writing a Custom Detector
+    - generic [ref=e202]:
+      - generic [ref=e205]: IDLE
+      - generic [ref=e206]: solana
+      - generic [ref=e207]: 17:54:11
+  - generic [ref=e208]: "0"

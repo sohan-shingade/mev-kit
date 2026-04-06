@@ -1,0 +1,205 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - generic [ref=e3]:
+      - generic [ref=e4]:
+        - generic [ref=e5]:
+          - generic [ref=e6]: mev
+          - generic [ref=e7]: kit
+        - generic [ref=e8]:
+          - generic [ref=e9]: ~
+          - generic [ref=e10]: /
+          - generic [ref=e11]: strategies
+          - generic [ref=e12]: ▊
+        - generic [ref=e14]: ⌘K
+      - generic [ref=e15]:
+        - navigation [ref=e16]:
+          - generic [ref=e17]:
+            - link "dashboard 1" [ref=e219] [cursor=pointer]:
+              - /url: /
+              - img [ref=e20]
+              - generic [ref=e25]: dashboard
+              - generic [ref=e26]: "1"
+            - link "> strategies 2" [ref=e2566] [cursor=pointer]:
+              - /url: /strategies
+              - generic [ref=e2567]: ">"
+              - img [ref=e28]
+              - generic [ref=e32]: strategies
+              - generic [ref=e33]: "2"
+            - link "backtest 3" [ref=e34] [cursor=pointer]:
+              - /url: /backtest
+              - img [ref=e35]
+              - generic [ref=e37]: backtest
+              - generic [ref=e38]: "3"
+            - link "config 4" [ref=e39] [cursor=pointer]:
+              - /url: /config
+              - img [ref=e40]
+              - generic [ref=e43]: config
+              - generic [ref=e44]: "4"
+            - link "analysis 5" [ref=e45] [cursor=pointer]:
+              - /url: /analysis
+              - img [ref=e46]
+              - generic [ref=e48]: analysis
+              - generic [ref=e49]: "5"
+            - link "data 6" [ref=e2568] [cursor=pointer]:
+              - /url: /data
+              - img [ref=e51]
+              - generic [ref=e55]: data
+              - generic [ref=e56]: "6"
+            - link "learn 7" [ref=e1812] [cursor=pointer]:
+              - /url: /learn
+              - img [ref=e58]
+              - generic [ref=e60]: learn
+              - generic [ref=e61]: "7"
+          - button [ref=e62]:
+            - img [ref=e63]
+        - main [ref=e65]:
+          - generic [ref=e2569]:
+            - generic [ref=e2570]:
+              - generic [ref=e2571]:
+                - generic [ref=e2572]:
+                  - img [ref=e2573]
+                  - generic [ref=e2578]: Strategies
+                - button "New Strategy" [ref=e2579]:
+                  - img [ref=e2580]
+              - generic [ref=e2581]:
+                - generic [ref=e2582]: Your Strategies
+                - button "cex_dex_arb.py" [ref=e2583]:
+                  - img [ref=e2584]
+                  - generic [ref=e2589]: cex_dex_arb.py
+                - button "liq_det.py" [ref=e2590]:
+                  - img [ref=e2591]
+                  - generic [ref=e2596]: liq_det.py
+                - button "volatility_breakout.py" [ref=e2657]:
+                  - img [ref=e2658]
+                  - generic [ref=e2663]: volatility_breakout.py
+              - generic [ref=e2597]:
+                - generic [ref=e2598]: Examples
+                - button "liquidation_detector" [ref=e2599]:
+                  - img [ref=e2600]
+                  - generic [ref=e2603]: liquidation_detector
+                - button "momentum_detector" [ref=e2604]:
+                  - img [ref=e2605]
+                  - generic [ref=e2608]: momentum_detector
+                - button "multi_pool_arb" [ref=e2609]:
+                  - img [ref=e2610]
+                  - generic [ref=e2613]: multi_pool_arb
+                - button "price_momentum" [ref=e2614]:
+                  - img [ref=e2615]
+                  - generic [ref=e2618]: price_momentum
+                - button "spread_tracker" [ref=e2619]:
+                  - img [ref=e2620]
+                  - generic [ref=e2623]: spread_tracker
+                - button "statistical_arb" [ref=e2624]:
+                  - img [ref=e2625]
+                  - generic [ref=e2628]: statistical_arb
+            - generic [ref=e2629]:
+              - generic [ref=e2630]:
+                - generic [ref=e2664]: volatility_breakout.py
+                - generic [ref=e2665]:
+                  - button "Validate" [ref=e2666]:
+                    - img [ref=e2667]
+                    - text: Validate
+                  - button "Save" [disabled] [ref=e2670]:
+                    - img [ref=e2671]
+                    - text: Save
+              - code [ref=e2678]:
+                - generic [ref=e2679]:
+                  - textbox "Editor content" [ref=e2680]
+                  - textbox [ref=e2681]
+                  - generic [ref=e2683]:
+                    - generic [ref=e2686]: "1"
+                    - generic [ref=e2688]: "2"
+                    - generic [ref=e2690]: "3"
+                    - generic [ref=e2692]: "4"
+                    - generic [ref=e2694]: "5"
+                    - generic [ref=e2696]: "6"
+                    - generic [ref=e2698]: "7"
+                    - generic [ref=e2700]: "8"
+                    - generic [ref=e2702]: "9"
+                    - generic [ref=e2704]: "10"
+                    - generic [ref=e2705]:
+                      - generic [ref=e2706] [cursor=pointer]: 
+                      - generic [ref=e2707]: "11"
+                    - generic [ref=e2709]: "12"
+                    - generic [ref=e2711]: "13"
+                    - generic [ref=e2713]: "14"
+                    - generic [ref=e2715]: "15"
+                    - generic [ref=e2717]: "16"
+                    - generic [ref=e2719]: "17"
+                    - generic [ref=e2721]: "18"
+                    - generic [ref=e2723]: "19"
+                    - generic [ref=e2725]: "20"
+                    - generic [ref=e2726]:
+                      - generic [ref=e2727] [cursor=pointer]: 
+                      - generic [ref=e2728]: "21"
+                    - generic [ref=e2730]: "22"
+                    - generic [ref=e2732]: "23"
+                    - generic [ref=e2734]: "24"
+                    - generic [ref=e2736]: "25"
+                    - generic [ref=e2738]: "26"
+                    - generic [ref=e2740]: "27"
+                    - generic [ref=e2742]: "28"
+                    - generic [ref=e2744]: "29"
+                    - generic [ref=e2745]:
+                      - generic [ref=e2746] [cursor=pointer]: 
+                      - generic [ref=e2747]: "30"
+                    - generic [ref=e2749]: "31"
+                    - generic [ref=e2751]: "32"
+                  - generic [ref=e2804]:
+                    - generic [ref=e2806]: "\"\"\"Custom MEV Detector — describe your strategy here."
+                    - generic [ref=e2809]: "Required data sources: Source.BINANCE_WS, Source.HELIUS_WS"
+                    - generic [ref=e2811]: "\"\"\""
+                    - generic [ref=e2814]: from __future__ import annotations
+                    - generic [ref=e2817]: import uuid
+                    - generic [ref=e2819]: from datetime import UTC, datetime
+                    - generic [ref=e2822]: from mev_kit.models import (
+                    - generic [ref=e2824]: Direction,
+                    - generic [ref=e2826]: Opportunity,
+                    - generic [ref=e2828]: OpportunityType,
+                    - generic [ref=e2830]: Source,
+                    - generic [ref=e2832]: StateUpdate,
+                    - generic [ref=e2834]: )
+                    - generic [ref=e2836]: from mev_kit.strategies.base import Detector
+                    - generic [ref=e2840]: "class CustomDetector(Detector):"
+                    - generic [ref=e2842]: "\"\"\"Your custom MEV detector."
+                    - generic [ref=e2845]: Describe what this detector does, what opportunities it finds,
+                    - generic [ref=e2847]: and what data sources it requires.
+                    - generic [ref=e2849]: "\"\"\""
+                    - generic [ref=e2852]: "required_sources = {Source.BINANCE_WS, Source.HELIUS_WS}"
+                    - generic [ref=e2855]: "def __init__(self, config: dict) -> None:"
+                    - generic [ref=e2857]: super().__init__(config)
+                    - generic [ref=e2859]: "self.min_spread_bps: float = config.get(\"min_spread_bps\", 20.0)"
+            - generic [ref=e2863]:
+              - generic [ref=e2864]:
+                - generic [ref=e2865]: Validation
+                - paragraph [ref=e2866]: Click Validate to check syntax
+              - generic [ref=e2867]:
+                - generic [ref=e2868]: Required Data Sources
+                - generic [ref=e2869]:
+                  - generic [ref=e2870]:
+                    - generic [ref=e2873]: Binance WebSocket
+                    - paragraph [ref=e2874]: Real-time CEX trade data (no API key)
+                  - generic [ref=e2875]:
+                    - generic [ref=e2878]: Helius WebSocket
+                    - paragraph [ref=e2879]: Raydium pool state changes via accountSubscribe
+              - generic [ref=e2880]:
+                - generic [ref=e2881]: Quick Reference
+                - generic [ref=e2882]:
+                  - generic [ref=e2883]: process(update)— core detection
+                  - generic [ref=e2884]: sync_state()— init hook
+                  - generic [ref=e2885]: before(update)— pre-process
+                  - generic [ref=e2886]: filters()— validation
+                  - generic [ref=e2887]: required_sources— data feeds
+                  - generic [ref=e2888]: hyperparameters()— optimization
+      - generic [ref=e202]:
+        - generic [ref=e205]: IDLE
+        - generic [ref=e206]: solana
+        - generic [ref=e207]: 17:56:26
+    - generic [ref=e2889]:
+      - generic [ref=e2890]: Created volatility_breakout.py
+      - button [ref=e2891]:
+        - img [ref=e2892]
+  - generic [ref=e208]: "0"
+  - generic [ref=e2895]:
+    - alert
+    - alert

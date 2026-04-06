@@ -1,0 +1,77 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e3]:
+    - generic [ref=e4]:
+      - generic [ref=e5]:
+        - generic [ref=e6]: mev
+        - generic [ref=e7]: kit
+      - generic [ref=e8]:
+        - generic [ref=e9]: ~
+        - generic [ref=e10]: /
+        - generic [ref=e11]: backtest
+        - generic [ref=e12]: ▊
+      - generic [ref=e14]: ⌘K
+    - generic [ref=e15]:
+      - navigation [ref=e16]:
+        - generic [ref=e17]:
+          - link "dashboard 1" [ref=e219] [cursor=pointer]:
+            - /url: /
+            - img [ref=e20]
+            - generic [ref=e25]: dashboard
+            - generic [ref=e26]: "1"
+          - link "strategies 2" [ref=e3097] [cursor=pointer]:
+            - /url: /strategies
+            - img [ref=e28]
+            - generic [ref=e32]: strategies
+            - generic [ref=e33]: "2"
+          - link "> backtest 3" [ref=e3098] [cursor=pointer]:
+            - /url: /backtest
+            - generic [ref=e3099]: ">"
+            - img [ref=e35]
+            - generic [ref=e37]: backtest
+            - generic [ref=e38]: "3"
+          - link "config 4" [ref=e39] [cursor=pointer]:
+            - /url: /config
+            - img [ref=e40]
+            - generic [ref=e43]: config
+            - generic [ref=e44]: "4"
+          - link "analysis 5" [ref=e45] [cursor=pointer]:
+            - /url: /analysis
+            - img [ref=e46]
+            - generic [ref=e48]: analysis
+            - generic [ref=e49]: "5"
+          - link "data 6" [ref=e2568] [cursor=pointer]:
+            - /url: /data
+            - img [ref=e51]
+            - generic [ref=e55]: data
+            - generic [ref=e56]: "6"
+          - link "learn 7" [ref=e1812] [cursor=pointer]:
+            - /url: /learn
+            - img [ref=e58]
+            - generic [ref=e60]: learn
+            - generic [ref=e61]: "7"
+        - button [ref=e62]:
+          - img [ref=e63]
+      - main [ref=e65]:
+        - generic [ref=e3100]:
+          - generic [ref=e3153]:
+            - heading "Backtest Running" [level=1] [ref=e3154]
+            - button "Cancel" [ref=e3155]:
+              - img [ref=e3156]
+              - text: Cancel
+          - generic [ref=e3102]:
+            - generic [ref=e3159]: Processing...
+            - generic [ref=e3106]:
+              - generic [ref=e3107]:
+                - generic [ref=e3108]: Updates Processed
+                - generic [ref=e3160]: "1"
+              - generic [ref=e3113]:
+                - generic [ref=e3114]: Opportunities Detected
+                - generic [ref=e3161]: "0"
+    - generic [ref=e202]:
+      - generic [ref=e205]: IDLE
+      - generic [ref=e206]: solana
+      - generic [ref=e207]: 17:59:01
+  - generic [ref=e208]: "0"
+  - generic [ref=e2895]:
+    - alert
+    - alert
