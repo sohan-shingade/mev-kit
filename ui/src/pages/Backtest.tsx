@@ -468,6 +468,47 @@ export default function Backtest() {
           </div>
         )}
 
+        {r.cost_breakdown && (
+          <div className="bg-bg-panel/30 border border-border/40 rounded p-3">
+            <div className="text-[10px] text-text-secondary uppercase tracking-wider mb-2">
+              Average Cost Per Trade
+            </div>
+            <div className="grid grid-cols-5 gap-2 text-xs">
+              <div>
+                <span className="text-text-secondary block">Venue Fee</span>
+                <span className="font-mono text-text-primary">{r.cost_breakdown.avg_venue_fee_bps} bps</span>
+              </div>
+              <div>
+                <span className="text-text-secondary block">Slippage</span>
+                <span className="font-mono text-accent-amber">{r.cost_breakdown.avg_slippage_bps} bps</span>
+              </div>
+              <div>
+                <span className="text-text-secondary block">Staleness</span>
+                <span className="font-mono text-text-primary">{r.cost_breakdown.avg_staleness_bps} bps</span>
+              </div>
+              <div>
+                <span className="text-text-secondary block">Tip</span>
+                <span className="font-mono text-text-primary">{r.cost_breakdown.avg_tip_bps}%</span>
+              </div>
+              <div>
+                <span className="text-text-secondary block">Land Rate</span>
+                <span className="font-mono text-accent-green">{(r.cost_breakdown.landing_rate * 100).toFixed(1)}%</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {r.warnings && r.warnings.length > 0 && (
+          <div className="bg-accent-amber/5 border border-accent-amber/30 rounded p-3">
+            <div className="text-[10px] text-accent-amber uppercase tracking-wider mb-1">Warnings</div>
+            <ul className="text-[11px] text-text-secondary space-y-1">
+              {r.warnings.map((w, i) => (
+                <li key={i}>&#x26A0; {w}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+
         {/* Backtest disclaimer — adapts based on whether fill simulation was used */}
         {r.total_trades > 0 && (
           <div className="bg-bg-panel/30 border border-border/40 rounded px-3 py-2 text-[10px] text-text-secondary leading-relaxed">

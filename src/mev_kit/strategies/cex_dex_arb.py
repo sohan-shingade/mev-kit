@@ -65,6 +65,7 @@ class CEXDEXArbDetector(Detector):
         self._dex_name: str = ""
         self._last_cex_update: datetime | None = None
         self._last_dex_update: datetime | None = None
+        self._last_volume: float | None = None
 
     async def process(self, update: StateUpdate) -> Opportunity | None:
         """Process a state update and check for arb opportunity."""
@@ -73,6 +74,8 @@ class CEXDEXArbDetector(Detector):
         if update.source in self.CEX_SOURCES and update.price:
             self._cex_price = update.price.price
             self._last_cex_update = update.received_at
+            if update.price.volume is not None:
+                self._last_volume = update.price.volume
 
         elif update.source in self.DEX_SOURCES:
             if update.pool:
@@ -83,6 +86,8 @@ class CEXDEXArbDetector(Detector):
             elif update.price:
                 self._dex_price = update.price.price
                 self._last_dex_update = update.received_at
+                if update.price.volume is not None:
+                    self._last_volume = update.price.volume
 
         # Need both prices to detect
         if self._cex_price is None or self._dex_price is None:
@@ -136,6 +141,7 @@ class CEXDEXArbDetector(Detector):
                 "dex_price": self._dex_price,
                 "gross_spread_bps": float(gross_bps),
                 "fee_bps": self.fee_bps,
+                "volume": self._last_volume,
             },
         )
 

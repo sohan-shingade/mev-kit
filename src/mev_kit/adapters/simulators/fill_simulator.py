@@ -196,6 +196,13 @@ class FillSimulator(Simulator):
         seed = config.get("random_seed")
         self._rng = random.Random(seed)
 
+        # Two-leg arb mode
+        self._two_leg: bool = config.get("two_leg", False)
+        self._cex_venue: str = config.get("cex_venue", "binance")
+
+        # Dynamic pool depth from volume data
+        self._dynamic_pool_depth: float | None = None
+
         # Real order book data (set via set_book_data())
         self._book_data: dict[str, dict[str, float]] = {}
         self._has_real_book = False
@@ -258,6 +265,22 @@ class FillSimulator(Simulator):
             has_real_book=self._has_real_book,
         )
 
+    def set_volume_context(self, volume: float | None, interval_minutes: int = 1) -> None:
+        """Update pool depth estimate from candle volume data.
+
+        Empirical: pool depth ~ 5% of daily volume for major pairs.
+        Scale down for smaller pairs.
+
+        Args:
+            volume: Volume from the latest candle/price update.
+            interval_minutes: Candle interval in minutes (for extrapolation to daily).
+        """
+        if volume is not None and volume > 0:
+            daily_volume = volume * (1440 / max(1, interval_minutes))
+            self._dynamic_pool_depth = max(1000.0, daily_volume * 0.05)
+        else:
+            self._dynamic_pool_depth = None
+
     async def simulate(self, opportunity: Opportunity) -> SimulationResult:
         """Simulate realistic fill for this opportunity."""
         self._total_simulated += 1
@@ -268,6 +291,15 @@ class FillSimulator(Simulator):
 
         dex_price = opportunity.dex_price
         spread_bps = opportunity.spread_bps
+
+        # ── Step 0: Update pool depth from volume context if available ──
+        volume = opportunity.metadata.get("volume")
+        if volume:
+            self.set_volume_context(volume)
+
+        # ── Two-leg arb path ──
+        if self._two_leg and opportunity.direction in ("buy_dex", "sell_dex"):
+            return await self._simulate_two_legs(opportunity, trade_size_sol)
 
         # ── Step 1: Calculate venue fee ──
         fee_bps = self._calc_fee_bps()
@@ -309,7 +341,7 @@ class FillSimulator(Simulator):
         self._total_profitable_after_costs += 1
 
         # ── Step 5: Jito bundle landing check ──
-        landed = self._check_landing()
+        landed = self._check_landing(spread_bps=spread_bps)
         if not landed:
             return SimulationResult(
                 opportunity_id=opportunity.id,
@@ -365,6 +397,140 @@ class FillSimulator(Simulator):
             simulated=True,
         )
 
+    async def _simulate_two_legs(
+        self, opportunity: Opportunity, trade_size_sol: float
+    ) -> SimulationResult:
+        """Simulate both legs of a CEX-DEX arb.
+
+        Leg 1 (DEX): Buy/sell on-chain via AMM -- subject to slippage, fees, Jito landing
+        Leg 2 (CEX): Sell/buy on exchange -- subject to order book impact, taker fees
+
+        Net profit = spread - leg1_cost - leg2_cost - tip
+        """
+        spread_bps = opportunity.spread_bps
+        latency_slots = self.venue["avg_latency_slots"]
+
+        # Leg 1: DEX execution (use current venue profile)
+        dex_fee_bps = self._calc_fee_bps()
+        dex_slippage_bps = self._calc_price_impact(
+            trade_size_sol, opportunity_ts=opportunity.detected_at
+        )
+        dex_cost_bps = dex_fee_bps + dex_slippage_bps
+
+        # Leg 2: CEX execution (use CEX venue profile)
+        cex_profile = VENUE_PROFILES.get(self._cex_venue, VENUE_PROFILES["binance"])
+        cex_fee_bps = float(cex_profile.get("taker_fee_bps", cex_profile["fee_numerator"] / cex_profile["fee_denominator"] * 10000))
+        cex_slippage_bps = self._calc_cex_slippage(trade_size_sol, cex_profile)
+        cex_cost_bps = cex_fee_bps + cex_slippage_bps
+
+        total_cost_bps = dex_cost_bps + cex_cost_bps
+        self._total_slippage_bps += dex_slippage_bps + cex_slippage_bps
+
+        # State staleness for both legs
+        staleness_decay_bps = self._calc_staleness_decay(latency_slots)
+        total_cost_bps += staleness_decay_bps
+
+        net_spread_bps = spread_bps - total_cost_bps
+
+        if net_spread_bps <= 0:
+            return SimulationResult(
+                opportunity_id=opportunity.id,
+                profitable=False,
+                gross_profit_sol=opportunity.estimated_profit_sol,
+                net_profit_sol=0.0,
+                sim_error=(
+                    f"Two-leg unprofitable: {spread_bps:.1f} bps spread "
+                    f"- {dex_fee_bps:.1f} DEX fee - {dex_slippage_bps:.1f} DEX slip "
+                    f"- {cex_fee_bps:.1f} CEX fee - {cex_slippage_bps:.1f} CEX slip "
+                    f"- {staleness_decay_bps:.1f} decay = {net_spread_bps:.1f} bps net"
+                ),
+                sim_latency_ms=latency_slots * self.venue["slot_time_ms"],
+                simulated=True,
+            )
+
+        self._total_profitable_after_costs += 1
+
+        # Jito landing check (only for the DEX leg)
+        landed = self._check_landing(spread_bps=spread_bps)
+        if not landed:
+            return SimulationResult(
+                opportunity_id=opportunity.id,
+                profitable=False,
+                gross_profit_sol=opportunity.estimated_profit_sol,
+                net_profit_sol=0.0,
+                sim_error=f"DEX leg bundle did not land ({self._landing_rate * 100:.0f}% rate)",
+                sim_latency_ms=latency_slots * self.venue["slot_time_ms"],
+                simulated=True,
+            )
+
+        self._total_landed += 1
+
+        # Calculate actual profit
+        from mev_kit.utils.precision import sol_to_lamports, lamports_to_sol, mul_bps
+
+        size_lamports = sol_to_lamports(trade_size_sol)
+        net_bps_i = int(net_spread_bps)
+        net_profit_lam = (size_lamports * max(net_bps_i, 0)) // 10_000
+
+        # Deduct tip (DEX leg only)
+        tip_bps_i = int(self.venue["tip_pct_of_profit"] * 10_000)
+        tip_lam = max(
+            mul_bps(net_profit_lam, tip_bps_i),
+            self.venue["min_tip_lamports"],
+        )
+        net_profit_lam -= tip_lam
+
+        if net_profit_lam <= 0:
+            return SimulationResult(
+                opportunity_id=opportunity.id,
+                profitable=False,
+                gross_profit_sol=opportunity.estimated_profit_sol,
+                net_profit_sol=0.0,
+                sim_error=f"Two-leg: tip ({lamports_to_sol(tip_lam):.6f} SOL) exceeds net profit",
+                simulated=True,
+            )
+
+        jitter = 0.8 + self._rng.random() * 0.4
+        latency_ms = latency_slots * self.venue["slot_time_ms"] * jitter
+
+        return SimulationResult(
+            opportunity_id=opportunity.id,
+            profitable=True,
+            gross_profit_sol=opportunity.estimated_profit_sol,
+            net_profit_sol=lamports_to_sol(net_profit_lam),
+            tip_lamports=tip_lam,
+            priority_fee_lamports=0,
+            compute_units=self.venue["compute_units"],
+            sim_latency_ms=round(latency_ms, 1),
+            simulated=True,
+        )
+
+    def _calc_cex_slippage(self, trade_size_sol: float, cex_profile: dict) -> float:
+        """Calculate CEX order book slippage for the second leg of an arb.
+
+        Uses the same order book model as ``_calc_orderbook_impact`` but
+        with the CEX venue's profile parameters.
+
+        Args:
+            trade_size_sol: Trade size in SOL.
+            cex_profile: Venue profile dict for the CEX.
+        """
+        avg_spread_bps = cex_profile.get("avg_spread_bps", 1.0)
+        book_depth_usd = cex_profile.get("book_depth_usd", 2_000_000)
+
+        half_spread = avg_spread_bps / 2.0
+        trade_value_usd = trade_size_sol * 100  # ~$100/SOL estimate
+
+        linear_impact_bps = (trade_value_usd / book_depth_usd) * 10_000
+        if trade_value_usd > book_depth_usd * 0.1:
+            impact_bps = math.sqrt(linear_impact_bps * 10_000) / 100
+        else:
+            impact_bps = linear_impact_bps
+
+        noise = 1.0 + (self._rng.random() - 0.5) * 0.4
+        total = (half_spread + impact_bps) * noise
+        return max(total, 0.05)
+
     def _calc_fee_bps(self) -> float:
         """Calculate venue fee in basis points."""
         # CEX: use taker fee (market orders for MEV speed)
@@ -403,7 +569,12 @@ class FillSimulator(Simulator):
             return self._calc_orderbook_impact(trade_size_sol, real_book=real_book)
 
         # DEX: constant product with capital efficiency adjustment
-        effective_reserve = self.pool_depth * self.venue["capital_efficiency"]
+        pool_depth = (
+            self._dynamic_pool_depth
+            if self._dynamic_pool_depth is not None
+            else self.pool_depth
+        )
+        effective_reserve = pool_depth * self.venue["capital_efficiency"]
 
         # Constant product price impact: dx / (R + dx)
         impact_fraction = trade_size_sol / (effective_reserve + trade_size_sol)
@@ -500,8 +671,28 @@ class FillSimulator(Simulator):
         # Actually, let's model it as absolute: ~1-5 bps of decay for typical spreads
         return (1.0 + self._rng.random() * 3.0) * total_decay_fraction
 
-    def _check_landing(self) -> bool:
-        """Check if the Jito bundle would land in the auction."""
+    def _check_landing(self, spread_bps: float = 0) -> bool:
+        """Dynamic Jito landing rate based on competition intensity.
+
+        Args:
+            spread_bps: The opportunity spread in basis points.  Larger
+                spreads attract more competing searchers, reducing the
+                probability of landing.
+        """
+        if self.venue.get("slippage_model") == "order_book":
+            # CEX: no Jito, just fill rate
+            return self._rng.random() < self.venue.get("fill_rate", 0.98)
+
         if self.landing_model == "deterministic":
             return (self._total_simulated % 100) < (self._landing_rate * 100)
-        return self._rng.random() < self._landing_rate
+
+        # Estimate competition from opportunity density
+        # More opportunities detected = more searchers competing
+        opps_per_100 = self._total_simulated  # rough proxy
+        competition = min(1.0, 50 / max(1, opps_per_100 % 100 + 1))
+
+        # Larger spreads attract more competition
+        profit_factor = max(0.3, 1.0 - spread_bps / 200) if spread_bps > 0 else 0.8
+
+        effective_rate = self._landing_rate * competition * profit_factor
+        return self._rng.random() < effective_rate

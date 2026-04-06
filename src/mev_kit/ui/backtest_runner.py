@@ -161,10 +161,13 @@ class BacktestRunner:
             },
         )
         if simulate_fills:
+            is_arb = hasattr(detector, "CEX_SOURCES") and hasattr(detector, "DEX_SOURCES")
             simulator = FillSimulator({
                 "venue": venue,
                 "landing_model": config.get("landing_model", "stochastic"),
                 "random_seed": config.get("random_seed"),
+                "two_leg": is_arb,
+                "cex_venue": config.get("cex_venue", "binance"),
             })
         else:
             simulator = PassthroughSimulator({})
@@ -260,6 +263,48 @@ class BacktestRunner:
                 "fee_bps": sim.venue.get("fee_bps", 0),
                 "avg_slippage_bps": sim.venue.get("base_slippage_bps", 0),
             }
+
+            # Cost breakdown per trade
+            if hasattr(sim, "_total_slippage_bps"):
+                result["cost_breakdown"] = {
+                    "avg_venue_fee_bps": round(
+                        sim.venue.get("fee_numerator", 0)
+                        / max(1, sim.venue.get("fee_denominator", 1))
+                        * 10000,
+                        1,
+                    ),
+                    "avg_slippage_bps": round(
+                        sim._total_slippage_bps / max(1, sim._total_simulated), 1
+                    ),
+                    "avg_staleness_bps": 2.0,  # approximate
+                    "avg_tip_bps": round(sim.venue.get("tip_pct_of_profit", 0) * 100, 1),
+                    "landing_rate": round(
+                        sim._total_landed / max(1, sim._total_simulated), 3
+                    ),
+                }
+
+        # ── Fix 2.5: Survivorship bias warnings ──
+        warnings: list[str] = []
+        if result["win_rate"] > 0.90 and result["total_trades"] > 10:
+            warnings.append(
+                "Win rate >90% is unusually high -- may indicate simulation bias "
+                "or overly loose parameters"
+            )
+        if result["avg_spread_bps"] < 5 and result["total_trades"] > 0:
+            warnings.append(
+                "Average spread <5 bps is below typical execution costs for most venues"
+            )
+        if self._pipeline:
+            detection_rate = result["total_trades"] / max(
+                1, self._pipeline.updates_processed
+            )
+            if detection_rate > 0.3:
+                warnings.append(
+                    f"Detection rate {detection_rate * 100:.0f}% is very aggressive -- "
+                    "most real strategies detect 1-5% of updates"
+                )
+        if warnings:
+            result["warnings"] = warnings
 
         return result
 

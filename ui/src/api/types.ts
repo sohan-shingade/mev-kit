@@ -86,6 +86,14 @@ export interface FillStats {
   avg_slippage_bps: number;
 }
 
+export interface CostBreakdown {
+  avg_venue_fee_bps: number;
+  avg_slippage_bps: number;
+  avg_staleness_bps: number;
+  avg_tip_bps: number;
+  landing_rate: number;
+}
+
 export interface BacktestResults {
   total_trades: number;
   total_profit_sol: number;
@@ -97,6 +105,8 @@ export interface BacktestResults {
   trades: TradeRow[];
   message?: string;
   fill_stats?: FillStats;
+  cost_breakdown?: CostBreakdown;
+  warnings?: string[];
 }
 
 export interface AnalysisSummary {
