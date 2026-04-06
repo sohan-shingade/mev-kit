@@ -100,5 +100,5 @@ class MergedReplayAdapter(IngestAdapter):
                     volume=None,
                     source=Source.BINANCE_WS,
                     timestamp=ts,
-            )
-            yield StateUpdate(source=Source.BINANCE_WS, price=price)
+                )
+                yield StateUpdate(source=Source.BINANCE_WS, price=price)

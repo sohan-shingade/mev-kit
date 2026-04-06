@@ -170,8 +170,15 @@ class Pipeline:
             update: StateUpdate = item
             self.updates_processed += 1
 
+            # Lifecycle hook: before
+            await self.detector.before(update)
+
             # Step 1: Detect
             opportunity = await self.detector.process(update)
+
+            # Lifecycle hook: after
+            await self.detector.after(update, [opportunity] if opportunity else [])
+
             if opportunity is None:
                 continue
 

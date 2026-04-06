@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import importlib.util
 import json
 from datetime import datetime
@@ -72,6 +73,7 @@ class BacktestRunner:
     def __init__(self) -> None:
         self._state: str = "idle"
         self._pipeline: Pipeline | None = None
+        self._task: asyncio.Task | None = None
         self._sink: BacktestSink | None = None
         self._results: dict[str, Any] = {}
 
@@ -91,6 +93,16 @@ class BacktestRunner:
         """Run a backtest against Parquet data."""
         if self._state == "running":
             raise RuntimeError("Backtest already running")
+
+        # Cancel any orphaned tasks from previous runs
+        if self._task and not self._task.done():
+            self._task.cancel()
+            try:
+                await self._task
+            except (asyncio.CancelledError, Exception):
+                pass
+            self._task = None
+
         self._state = "running"
 
         # Use FillSimulator for realistic execution modeling
@@ -283,30 +295,34 @@ class BacktestRunner:
                     )
                 """)
 
-                for record in self._sink.results:
-                    await db.execute(
-                        """INSERT OR IGNORE INTO paper_trades
-                           (id, timestamp, type, direction, pair, dex, dex_price,
-                            reference_price, spread_bps, estimated_profit_sol,
-                            simulated_profit_sol, pool_address, detector, metadata)
-                           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                        (
-                            record["id"],
-                            record.get("detected_at", datetime.utcnow().isoformat()),
-                            record["type"],
-                            record["direction"],
-                            record["pair"],
-                            record["dex"],
-                            record["dex_price"],
-                            record["reference_price"],
-                            record["spread_bps"],
-                            record["estimated_profit_sol"],
-                            record["simulated_profit_sol"],
-                            record.get("slot", ""),
-                            "backtest",
-                            json.dumps(record),
-                        ),
+                # Batch insert with executemany for performance on large trade counts
+                rows = [
+                    (
+                        r["id"],
+                        r.get("detected_at", datetime.utcnow().isoformat()),
+                        r["type"],
+                        r["direction"],
+                        r["pair"],
+                        r["dex"],
+                        r["dex_price"],
+                        r["reference_price"],
+                        r["spread_bps"],
+                        r["estimated_profit_sol"],
+                        r["simulated_profit_sol"],
+                        r.get("slot", ""),
+                        "backtest",
+                        json.dumps(r),
                     )
+                    for r in self._sink.results
+                ]
+                await db.executemany(
+                    """INSERT OR IGNORE INTO paper_trades
+                       (id, timestamp, type, direction, pair, dex, dex_price,
+                        reference_price, spread_bps, estimated_profit_sol,
+                        simulated_profit_sol, pool_address, detector, metadata)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    rows,
+                )
                 await db.commit()
             logger.info(
                 "backtest_runner.results_persisted",
