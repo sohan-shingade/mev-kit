@@ -14,6 +14,7 @@ Config keys:
 
 from __future__ import annotations
 
+import base64
 import os
 import time
 
@@ -87,29 +88,58 @@ class RPCSimulator(Simulator):
             )
 
     async def _call_simulate_transaction(self, opportunity: Opportunity) -> dict:
-        """Call simulateTransaction RPC method.
+        """Call simulateTransaction RPC method with a real transaction.
 
-        For MVP, we simulate a message-level simulation using the opportunity's
-        estimated parameters rather than constructing a full signed transaction.
+        Builds a Raydium swap transaction using the transaction_builder
+        module, serializes it to base64, and submits it to the RPC
+        endpoint for simulation. Uses a dummy keypair since simulation
+        does not require a real signer (sigVerify=False).
         """
-        # Build a simulated accounts request to check pool state
-        # This is a lightweight simulation approach for MVP
+        from mev_kit.utils.transaction_builder import (
+            build_swap_transaction,
+            get_pool_accounts,
+        )
+        from solders.keypair import Keypair
+
+        # Look up pool accounts for this opportunity
+        pool_accounts = get_pool_accounts(opportunity.pool_address)
+        if pool_accounts is None:
+            return {
+                "error": {
+                    "message": (
+                        f"Unknown pool: {opportunity.pool_address}. "
+                        "RPC simulation requires known pool account addresses."
+                    )
+                }
+            }
+
+        # Build a real transaction for simulation
+        # Use a dummy keypair — simulation doesn't require a real signer
+        dummy_keypair = Keypair()
+
+        try:
+            tx_bytes = await build_swap_transaction(
+                pool_accounts=pool_accounts,
+                keypair=dummy_keypair,
+                amount_in=opportunity.amount_in_lamports,
+                minimum_amount_out=0,  # Accept any output for simulation
+                rpc_url=self.rpc_url,
+            )
+            tx_base64 = base64.b64encode(tx_bytes).decode()
+        except Exception as exc:
+            return {"error": {"message": f"Failed to build simulation tx: {exc}"}}
+
         payload = {
             "jsonrpc": "2.0",
             "id": 1,
             "method": "simulateTransaction",
             "params": [
-                # Base64-encoded transaction would go here in production
-                # For MVP, we use the accounts-based simulation approach
-                "",  # placeholder — real impl builds tx via solders
+                tx_base64,
                 {
                     "encoding": "base64",
                     "commitment": "processed",
                     "replaceRecentBlockhash": True,
-                    "accounts": {
-                        "encoding": "base64",
-                        "addresses": [opportunity.pool_address],
-                    },
+                    "sigVerify": False,
                 },
             ],
         }

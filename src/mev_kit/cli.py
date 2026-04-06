@@ -153,7 +153,7 @@ async def _run_paper(config_path: str) -> None:
     from mev_kit.adapters.simulators.rpc_simulator import RPCSimulator
     from mev_kit.adapters.sinks.paper_trade import PaperTradeSink
     from mev_kit.pipeline.runner import Pipeline
-    from mev_kit.strategies.cex_dex_arb import CEXDEXArbDetector
+    from mev_kit.ui.backtest_runner import _load_detector
 
     config = _load_config(config_path)
 
@@ -178,7 +178,8 @@ async def _run_paper(config_path: str) -> None:
         "symbol": "solusdt",
     })
 
-    detector = CEXDEXArbDetector({
+    strategy_name = config.strategy if hasattr(config, "strategy") else "cex_dex_arb"
+    detector = _load_detector(strategy_name, {
         "min_spread_bps": config.min_spread_bps,
         "fee_bps": 30.0,
         "pair": "SOL/USDC",
@@ -240,7 +241,7 @@ async def _run_live(config_path: str, size: float) -> None:
     from mev_kit.adapters.sinks.jito_bundle import JitoBundleSink
     from mev_kit.models import ExecutionMode
     from mev_kit.pipeline.runner import Pipeline
-    from mev_kit.strategies.cex_dex_arb import CEXDEXArbDetector
+    from mev_kit.ui.backtest_runner import _load_detector
 
     config = _load_config(config_path)
     config.mode = ExecutionMode.LIVE
@@ -263,7 +264,8 @@ async def _run_live(config_path: str, size: float) -> None:
     })
     binance_adapter = BinanceWSAdapter({"symbol": "solusdt"})
 
-    detector = CEXDEXArbDetector({
+    strategy_name = config.strategy if hasattr(config, "strategy") else "cex_dex_arb"
+    detector = _load_detector(strategy_name, {
         "min_spread_bps": config.min_spread_bps,
         "pair": "SOL/USDC",
         "position_size_sol": size,

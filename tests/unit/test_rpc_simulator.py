@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import uuid
 from datetime import UTC, datetime
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from solders.hash import Hash
 
 from mev_kit.adapters.simulators.rpc_simulator import (
     LAMPORTS_PER_SOL,
@@ -132,7 +133,12 @@ class TestRPCSimulator:
     """Tests for the full RPC simulator with mocked HTTP."""
 
     @pytest.mark.asyncio
-    async def test_successful_simulation(self) -> None:
+    @patch(
+        "mev_kit.utils.transaction_builder.get_recent_blockhash",
+        new_callable=AsyncMock,
+        return_value=Hash.default(),
+    )
+    async def test_successful_simulation(self, mock_blockhash) -> None:
         """Test that a successful RPC simulation returns a valid result."""
         simulator = RPCSimulator({"rpc_url": "https://fake-rpc.test"})
         opp = _make_opportunity(estimated_profit_sol=0.05)
@@ -163,7 +169,12 @@ class TestRPCSimulator:
         assert result.sim_latency_ms > 0
 
     @pytest.mark.asyncio
-    async def test_failed_simulation(self) -> None:
+    @patch(
+        "mev_kit.utils.transaction_builder.get_recent_blockhash",
+        new_callable=AsyncMock,
+        return_value=Hash.default(),
+    )
+    async def test_failed_simulation(self, mock_blockhash) -> None:
         """Test that a failed RPC simulation returns profitable=False."""
         simulator = RPCSimulator({"rpc_url": "https://fake-rpc.test"})
         opp = _make_opportunity()
@@ -193,7 +204,12 @@ class TestRPCSimulator:
         assert result.compute_units == 50_000
 
     @pytest.mark.asyncio
-    async def test_rpc_level_error(self) -> None:
+    @patch(
+        "mev_kit.utils.transaction_builder.get_recent_blockhash",
+        new_callable=AsyncMock,
+        return_value=Hash.default(),
+    )
+    async def test_rpc_level_error(self, mock_blockhash) -> None:
         """Test that an RPC-level error returns profitable=False."""
         simulator = RPCSimulator({"rpc_url": "https://fake-rpc.test"})
         opp = _make_opportunity()
@@ -216,7 +232,12 @@ class TestRPCSimulator:
         assert result.sim_error is not None
 
     @pytest.mark.asyncio
-    async def test_network_error(self) -> None:
+    @patch(
+        "mev_kit.utils.transaction_builder.get_recent_blockhash",
+        new_callable=AsyncMock,
+        return_value=Hash.default(),
+    )
+    async def test_network_error(self, mock_blockhash) -> None:
         """Test that network errors are handled gracefully."""
         import httpx
 

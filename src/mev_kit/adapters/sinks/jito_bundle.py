@@ -16,6 +16,7 @@ Config keys:
 from __future__ import annotations
 
 import json
+import os
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -92,12 +93,20 @@ class JitoBundleSink(Sink):
             max_tip=self.max_tip_lamports,
         )
 
-        # Build the bundle
-        bundle = build_bundle(
-            opportunity=opportunity,
-            tip_lamports=tip_lamports,
-            keypair_bytes=self._keypair_bytes,
-        )
+        # Build the bundle — use real transaction construction when possible
+        if self._keypair_bytes and not self.dry_run:
+            try:
+                bundle = await self._build_real_bundle(opportunity, tip_lamports)
+            except Exception as exc:
+                logger.warning(
+                    "jito_bundle.real_bundle_failed",
+                    error=str(exc),
+                    opportunity_id=opportunity.id,
+                )
+                # Fall back to placeholder bundle
+                bundle = build_bundle(opportunity, tip_lamports, self._keypair_bytes)
+        else:
+            bundle = build_bundle(opportunity, tip_lamports, self._keypair_bytes)
 
         if self.dry_run:
             logger.info(
@@ -153,6 +162,57 @@ class JitoBundleSink(Sink):
                 error=str(exc),
                 submitted_at=submitted_at,
             )
+
+    async def _build_real_bundle(
+        self, opportunity: Opportunity, tip_lamports: int
+    ) -> dict:
+        """Build a real Jito bundle with signed transactions.
+
+        Uses the transaction_builder module to construct and sign real
+        Raydium swap and Jito tip transactions. Falls back to the
+        placeholder bundle for unknown pools.
+
+        Args:
+            opportunity: The detected opportunity to execute.
+            tip_lamports: Jito tip amount in lamports.
+
+        Returns:
+            Dict with "transactions" list of base64-encoded signed tx strings.
+
+        Raises:
+            RuntimeError: If keypair is not available.
+            ValueError: If pool accounts are unknown (caller should fall back).
+        """
+        from solders.keypair import Keypair
+
+        from mev_kit.utils.transaction_builder import (
+            build_bundle_transactions,
+            get_pool_accounts,
+        )
+
+        pool_accounts = get_pool_accounts(opportunity.pool_address)
+        if pool_accounts is None:
+            raise ValueError(f"Unknown pool: {opportunity.pool_address}")
+
+        if self._keypair_bytes is None:
+            raise RuntimeError("Keypair required for real bundle construction")
+
+        keypair = Keypair.from_bytes(self._keypair_bytes)
+
+        rpc_url = os.environ.get(
+            "HELIUS_RPC_URL", "https://api.mainnet-beta.solana.com"
+        )
+
+        transactions = await build_bundle_transactions(
+            pool_accounts=pool_accounts,
+            keypair=keypair,
+            amount_in=opportunity.amount_in_lamports,
+            minimum_amount_out=0,  # TODO: calculate from simulation
+            tip_lamports=tip_lamports,
+            rpc_url=rpc_url,
+        )
+
+        return {"transactions": transactions}
 
     async def _submit_bundle(self, bundle: dict) -> dict:
         """Submit bundle to Jito block engine via HTTP POST."""
