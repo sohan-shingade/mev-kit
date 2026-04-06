@@ -440,17 +440,29 @@ export default function Backtest() {
           </div>
         )}
 
-        {/* Backtest disclaimer */}
+        {/* Backtest disclaimer — adapts based on whether fill simulation was used */}
         {r.total_trades > 0 && (
           <div className="bg-bg-panel/30 border border-border/40 rounded px-3 py-2 text-[10px] text-text-secondary leading-relaxed">
-            <span className="text-accent-amber font-semibold">Backtest limitations:</span>{" "}
-            Results assume instant execution at detected price with zero slippage, no competing searchers, and perfect fill rates.
-            Real execution via Jito bundles has ~30-50% landing rate, variable slippage based on trade size and pool depth,
-            and priority fee / tip costs not modeled here. Treat P&L as an upper bound — actual live performance will be lower.
+            {r.fill_stats ? (
+              <>
+                <span className="text-accent-green font-semibold">Fill simulation active ({r.fill_stats.venue_label}):</span>{" "}
+                Results include venue-specific fees ({r.fill_stats.fee_bps} bps), slippage modeling, Jito landing rate
+                ({(r.fill_stats.landing_rate_actual * 100).toFixed(0)}% landed), and tip costs.
+                {" "}Remaining limitations: slippage uses estimated pool depth (not real-time reserves),
+                competition model is stochastic (not game-theoretic), and state staleness is approximated.
+              </>
+            ) : (
+              <>
+                <span className="text-accent-amber font-semibold">No fill simulation:</span>{" "}
+                Results assume instant execution at detected price with zero slippage, no competing searchers, and perfect fill rates.
+                Enable "Realistic fill simulation" to model venue fees, slippage, and Jito landing rates.
+                Treat these P&L numbers as a theoretical upper bound.
+              </>
+            )}
             {" "}Data source: {config.data_file.includes("birdeye") || config.data_file.includes("merged")
-              ? "Birdeye aggregated DEX price (weighted across Raydium, Orca, Meteora, Phoenix) — actual execution on a single venue may differ."
+              ? "Birdeye aggregated DEX price — actual execution on a single venue may differ."
               : config.data_file.includes("binance")
-              ? "Binance CEX candles — does not reflect on-chain execution conditions."
+              ? "Binance CEX candles."
               : "Parquet replay data."}
           </div>
         )}
