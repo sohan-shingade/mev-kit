@@ -16,3 +16,9 @@ venv/
 ui/node_modules/
 src/mev_kit/ui/static/
 .superpowers/
+.env
+*.db
+__pycache__/
+*.pyc
+.pytest_cache/
+.playwright-mcp/
