@@ -208,20 +208,28 @@ class BacktestRunner:
                 ),
             }
 
+        from mev_kit.utils.precision import ProfitAccumulator, sol_to_lamports
+
         results = self._sink.results
-        profits = [r["simulated_profit_sol"] for r in results]
+
+        # Accumulate P&L in integer lamports to avoid float drift
+        acc = ProfitAccumulator()
+        for r in results:
+            profit_lam = sol_to_lamports(r.get("simulated_profit_sol", 0))
+            acc.add(profit_lam)
+
+        # Spread aggregation (integer bps × 10 for 1 decimal precision)
+        spread_sum = sum(int(r.get("spread_bps", 0) * 10) for r in results)
+        avg_spread = (spread_sum / max(1, len(results))) / 10
+
         result = {
-            "total_trades": len(results),
-            "total_profit_sol": round(sum(profits), 6),
-            "avg_profit_sol": round(sum(profits) / len(profits), 6) if profits else 0.0,
-            "win_rate": round(
-                sum(1 for p in profits if p > 0) / len(profits), 4
-            ) if profits else 0.0,
-            "best_trade_sol": round(max(profits), 6) if profits else 0.0,
-            "worst_trade_sol": round(min(profits), 6) if profits else 0.0,
-            "avg_spread_bps": round(
-                sum(r["spread_bps"] for r in results) / len(results), 1
-            ) if results else 0.0,
+            "total_trades": acc.count,
+            "total_profit_sol": round(acc.total_sol, 6),
+            "avg_profit_sol": round(acc.avg_sol, 6),
+            "win_rate": round(acc.win_rate, 4),
+            "best_trade_sol": round(acc.best_sol, 6),
+            "worst_trade_sol": round(acc.worst_sol, 6),
+            "avg_spread_bps": round(avg_spread, 1),
             "trades": results,
         }
 

@@ -88,11 +88,19 @@ class CEXDEXArbDetector(Detector):
         if self._cex_price is None or self._dex_price is None:
             return None
 
-        # Calculate spread
-        spread_bps = abs(self._cex_price - self._dex_price) / self._cex_price * 10_000
-        net_spread_bps = spread_bps - self.fee_bps
+        # Calculate spread using integer basis points
+        from mev_kit.utils.precision import (
+            spread_bps_int,
+            profit_lamports,
+            sol_to_lamports,
+            lamports_to_sol,
+        )
 
-        if net_spread_bps < self.min_spread_bps:
+        gross_bps = spread_bps_int(self._cex_price, self._dex_price)
+        fee_bps_i = int(self.fee_bps)
+        net_bps = gross_bps - fee_bps_i
+
+        if net_bps < int(self.min_spread_bps):
             return None
 
         # Determine direction
@@ -101,8 +109,12 @@ class CEXDEXArbDetector(Detector):
         else:
             direction = Direction.SELL_DEX  # Sell expensive on DEX
 
-        # Estimate profit
-        estimated_profit = (net_spread_bps / 10_000) * self.position_size_sol * self._cex_price
+        # Estimate profit in integer lamports
+        size_lamports = sol_to_lamports(self.position_size_sol)
+        est_profit_lamports = profit_lamports(
+            spread_bps=gross_bps, fee_bps=fee_bps_i,
+            size_lamports=size_lamports,
+        )
 
         self._opportunities_detected += 1
 
@@ -112,8 +124,8 @@ class CEXDEXArbDetector(Detector):
             direction=direction,
             dex_price=self._dex_price,
             reference_price=self._cex_price,
-            spread_bps=round(net_spread_bps, 2),
-            estimated_profit_sol=estimated_profit / self._cex_price,
+            spread_bps=float(net_bps),
+            estimated_profit_sol=lamports_to_sol(est_profit_lamports),
             pool_address=self._dex_pool_address,
             dex=self._dex_name,
             pair=self.pair,
@@ -122,7 +134,7 @@ class CEXDEXArbDetector(Detector):
             metadata={
                 "cex_price": self._cex_price,
                 "dex_price": self._dex_price,
-                "gross_spread_bps": round(spread_bps, 2),
+                "gross_spread_bps": float(gross_bps),
                 "fee_bps": self.fee_bps,
             },
         )

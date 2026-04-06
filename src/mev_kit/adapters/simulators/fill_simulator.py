@@ -323,25 +323,29 @@ class FillSimulator(Simulator):
 
         self._total_landed += 1
 
-        # ── Step 6: Calculate actual profit ──
-        net_profit_sol = (net_spread_bps / 10_000) * trade_size_sol
+        # ── Step 6: Calculate actual profit in integer lamports ──
+        from mev_kit.utils.precision import sol_to_lamports, lamports_to_sol, mul_bps
 
-        # Deduct tip
-        tip_pct = self.venue["tip_pct_of_profit"]
-        tip_sol = max(
-            net_profit_sol * tip_pct,
-            self.venue["min_tip_lamports"] / LAMPORTS_PER_SOL,
+        size_lamports = sol_to_lamports(trade_size_sol)
+        # net_spread_bps is float from slippage calc — truncate to int for final math
+        net_bps_i = int(net_spread_bps)
+        net_profit_lam = (size_lamports * max(net_bps_i, 0)) // 10_000
+
+        # Deduct tip (integer)
+        tip_bps_i = int(self.venue["tip_pct_of_profit"] * 10_000)  # e.g., 0.10 → 1000 bps
+        tip_lam = max(
+            mul_bps(net_profit_lam, tip_bps_i),
+            self.venue["min_tip_lamports"],
         )
-        net_profit_sol -= tip_sol
-        tip_lamports = int(tip_sol * LAMPORTS_PER_SOL)
+        net_profit_lam -= tip_lam
 
-        if net_profit_sol <= 0:
+        if net_profit_lam <= 0:
             return SimulationResult(
                 opportunity_id=opportunity.id,
                 profitable=False,
                 gross_profit_sol=opportunity.estimated_profit_sol,
                 net_profit_sol=0.0,
-                sim_error=f"Tip ({tip_sol:.6f} SOL) exceeds net profit",
+                sim_error=f"Tip ({lamports_to_sol(tip_lam):.6f} SOL) exceeds net profit",
                 simulated=True,
             )
 
@@ -353,8 +357,8 @@ class FillSimulator(Simulator):
             opportunity_id=opportunity.id,
             profitable=True,
             gross_profit_sol=opportunity.estimated_profit_sol,
-            net_profit_sol=round(net_profit_sol, 8),
-            tip_lamports=tip_lamports,
+            net_profit_sol=lamports_to_sol(net_profit_lam),
+            tip_lamports=tip_lam,
             priority_fee_lamports=0,
             compute_units=self.venue["compute_units"],
             sim_latency_ms=round(latency_ms, 1),
