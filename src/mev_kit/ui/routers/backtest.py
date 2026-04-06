@@ -23,6 +23,12 @@ async def start_backtest(request: Request, body: dict[str, Any]) -> dict[str, st
         data_dir = request.app.state.data_dir.rstrip("/")
         data_file = f"{data_dir}/{data_file}"
     config = body.get("config", body)  # Accept both nested and flat
+
+    # Pass through extra_data_files for multi-asset backtesting
+    extra_data_files = body.get("extra_data_files", [])
+    if extra_data_files:
+        config["extra_data_files"] = extra_data_files
+
     if _runner._state == "running":
         return {"status": "error", "error": "Backtest already running"}
     asyncio.create_task(_runner.run(data_path=data_file, config=config))

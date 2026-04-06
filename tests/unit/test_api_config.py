@@ -35,3 +35,9 @@ class TestConfigAPI:
         assert resp.status_code == 200
         data = resp.json()
         assert "HELIUS_API_KEY" in data
+
+    def test_env_status_includes_webhook_url(self, client: TestClient) -> None:
+        resp = client.get("/api/config/env")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "MEV_KIT_WEBHOOK_URL" in data

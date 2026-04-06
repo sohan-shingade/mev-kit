@@ -13,6 +13,7 @@ import aiosqlite
 import polars as pl
 import structlog
 
+from mev_kit.utils.alerts import send_alert
 from mev_kit.adapters.ingest.merged_replay import MergedReplayAdapter
 from mev_kit.adapters.ingest.parquet_replay import ParquetReplayAdapter
 from mev_kit.adapters.simulators.base import PassthroughSimulator
@@ -131,7 +132,7 @@ class BacktestRunner:
             circuit_breaker_enabled=False,
         )
 
-        # Build adapters — support single file, dual file, or merged
+        # Build adapters — support single file, dual file, merged, or multi-asset
         adapters = []
         source_type = detect_source_type(data_path)
         logger.info(
@@ -165,6 +166,23 @@ class BacktestRunner:
                     "source_type": cex_source,
                     "source_override": "binance_ws",
                 }))
+
+        # Support multi-asset: additional data files
+        extra_files = config.get("extra_data_files", [])
+        for extra_file in extra_files:
+            extra_path = extra_file
+            if "/" not in extra_path:
+                extra_path = f"{Path(data_path).parent}/{extra_path}"
+            extra_type = detect_source_type(extra_path)
+            logger.info(
+                "backtest_runner.extra_file_added",
+                path=extra_path,
+                source_type=extra_type,
+            )
+            if extra_type == "merged":
+                adapters.append(MergedReplayAdapter({"path": extra_path, "use_sources": config.get("use_sources", [])}))
+            else:
+                adapters.append(ParquetReplayAdapter({"path": extra_path, "source_type": extra_type}))
         detector = _load_detector(
             config.get("strategy", "price_momentum"),
             {
@@ -211,6 +229,14 @@ class BacktestRunner:
         # Persist results to SQLite for the Analysis page
         db_path = config.get("results_db", DEFAULT_BACKTEST_DB)
         await self._persist_results_to_sqlite(db_path)
+
+        # Send alert on backtest completion
+        risk = self._results.get("risk_metrics", {})
+        await send_alert("backtest.completed", {
+            "total_trades": self._results.get("total_trades", 0),
+            "total_profit_sol": self._results.get("total_profit_sol", 0),
+            "sharpe": risk.get("sharpe_ratio", "N/A"),
+        })
 
     def _compute_results(self) -> dict[str, Any]:
         """Compute summary from backtest sink results."""

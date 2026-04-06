@@ -3,7 +3,7 @@ import { get, post } from "../api/client";
 import type { BacktestStatus, DataFile, SweepResultRow, SweepStatus, TradeRow, WalkForwardResult } from "../api/types";
 import DataTable from "../components/common/DataTable";
 import { toast } from "../components/common/Toast";
-import { Play, Square, RotateCcw, Download, ChevronDown, ChevronUp, Trash2, Search, FlaskConical, GitCompare } from "lucide-react";
+import { Play, Square, RotateCcw, Download, ChevronDown, ChevronUp, Trash2, Search, FlaskConical, GitCompare, Plus, X } from "lucide-react";
 import {
   ComposedChart,
   Area,
@@ -35,6 +35,7 @@ interface BacktestConfig {
   use_sources: string[];
   venue: string;
   simulate_fills: boolean;
+  extra_data_files: string[];
 }
 
 interface FileSource {
@@ -165,6 +166,7 @@ export default function Backtest() {
     use_sources: [],  // empty = use all available
     venue: "aggregated",
     simulate_fills: true,
+    extra_data_files: [],
   });
   const [status, setStatus] = useState<BacktestStatus>({ state: "idle" });
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -312,7 +314,12 @@ export default function Backtest() {
       return;
     }
     try {
-      await post("/api/backtest/start", config);
+      const payload: Record<string, unknown> = { ...config };
+      // Only pass extra_data_files if non-empty
+      if (config.extra_data_files.length === 0) {
+        delete payload.extra_data_files;
+      }
+      await post("/api/backtest/start", payload);
       setStatus({ state: "running" });
       setPage(1);
       setSelectedHistoryId(null);
@@ -525,6 +532,22 @@ export default function Backtest() {
             >
               <RotateCcw size={12} />
               Tweak &amp; Re-run
+            </button>
+            <button
+              onClick={async () => {
+                try {
+                  await post("/api/pipeline/start-from-backtest", {
+                    run_config: r.run_config,
+                  });
+                  toast("Paper trading started with backtest params", "success");
+                  window.location.href = "/";
+                } catch {
+                  toast("Failed to start paper trading", "error");
+                }
+              }}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-accent-green/10 border border-accent-green/30 text-accent-green rounded hover:bg-accent-green/20 transition-colors"
+            >
+              Go Paper &rarr;
             </button>
           </div>
         </div>
@@ -808,6 +831,58 @@ export default function Backtest() {
             </select>
           )}
         </div>
+
+        {/* Multi-asset: extra data files */}
+        {files.length > 0 && (
+          <div className="flex flex-col gap-2">
+            {config.extra_data_files.map((ef, idx) => (
+              <div key={idx} className="flex items-center gap-2">
+                <select
+                  value={ef}
+                  onChange={(e) => {
+                    const updated = [...config.extra_data_files];
+                    updated[idx] = e.target.value;
+                    setConfig((c) => ({ ...c, extra_data_files: updated }));
+                  }}
+                  className="flex-1 bg-bg-main border border-border rounded px-2 py-1.5 text-xs text-text-primary focus:outline-none focus:border-accent-indigo"
+                >
+                  <option value="">Select extra file...</option>
+                  {files
+                    .filter((f) => f.name !== config.data_file)
+                    .map((f) => (
+                      <option key={f.name} value={f.name}>
+                        {f.name} ({f.rows.toLocaleString()} rows)
+                      </option>
+                    ))}
+                </select>
+                <button
+                  onClick={() => {
+                    const updated = config.extra_data_files.filter((_, i) => i !== idx);
+                    setConfig((c) => ({ ...c, extra_data_files: updated }));
+                  }}
+                  className="p-1 text-accent-red/70 hover:text-accent-red transition-colors"
+                  title="Remove dataset"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            ))}
+            {config.extra_data_files.length < 5 && (
+              <button
+                onClick={() =>
+                  setConfig((c) => ({
+                    ...c,
+                    extra_data_files: [...c.extra_data_files, ""],
+                  }))
+                }
+                className="flex items-center gap-1.5 self-start px-2 py-1 text-[10px] text-text-secondary border border-border/40 rounded hover:bg-bg-active/30 transition-colors"
+              >
+                <Plus size={11} />
+                Add Dataset
+              </button>
+            )}
+          </div>
+        )}
 
         {/* Data source cross-check: what's in the file vs what the strategy needs */}
         {(fileSources || strategyInfo) && (

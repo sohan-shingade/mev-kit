@@ -22,6 +22,7 @@ from mev_kit.adapters.sinks.paper_trade import PaperTradeSink
 from mev_kit.models import PipelineConfig
 from mev_kit.pipeline.runner import Pipeline
 from mev_kit.strategies.cex_dex_arb import CEXDEXArbDetector
+from mev_kit.utils.alerts import send_alert
 
 logger = structlog.get_logger()
 
@@ -108,11 +109,16 @@ class PipelineManager:
         self._recent_opportunities = []
         self._task = asyncio.create_task(pipeline.run())
         logger.info("pipeline_manager.started", mode=mode)
+        await send_alert("pipeline.started", {
+            "mode": mode,
+            "strategy": config_overrides.get("strategy"),
+        })
 
     async def stop(self) -> None:
         """Stop the running pipeline."""
         if self._pipeline is None:
             return
+        total_profit = self._pipeline.total_profit_sol if self._pipeline else 0
         await self._pipeline.stop()
         if self._task and not self._task.done():
             try:
@@ -125,6 +131,9 @@ class PipelineManager:
         self._start_time = None
         self._error = None
         logger.info("pipeline_manager.stopped")
+        await send_alert("pipeline.stopped", {
+            "total_profit_sol": total_profit,
+        })
 
     def hot_reload(self, params: dict) -> None:
         """Patch hot-reloadable params on the live detector."""

@@ -17,6 +17,7 @@ from typing import Any
 import aiosqlite
 import structlog
 
+from mev_kit.utils.alerts import send_alert
 from mev_kit.ui.backtest_runner import BacktestRunner
 
 logger = structlog.get_logger()
@@ -110,6 +111,13 @@ class SweepRunner:
 
             # Persist sweep results
             await self._persist_sweep(data_path, strategy, sweep_params)
+
+            # Send alert on sweep completion
+            best = self._results[0] if self._results else {}
+            await send_alert("sweep.completed", {
+                "combinations": len(combinations),
+                "best_sharpe": best.get("sharpe_ratio", "N/A"),
+            })
 
         except Exception as exc:
             self._state = "error"

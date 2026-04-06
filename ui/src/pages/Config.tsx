@@ -11,6 +11,7 @@ interface EnvStatus {
   BINANCE_WS_URL: boolean;
   JITO_BLOCK_ENGINE_URL: boolean;
   WALLET_KEYPAIR_PATH: boolean;
+  MEV_KIT_WEBHOOK_URL?: boolean;
 }
 
 function AccordionSection({
@@ -388,6 +389,9 @@ export default function Config() {
               )}
               <p className="text-[10px] text-text-secondary mt-1">
                 Set via environment variables — values are never shown in the UI.
+              </p>
+              <p className="text-[10px] text-text-secondary mt-1 border-t border-border/40 pt-1.5">
+                Set <span className="font-mono">MEV_KIT_WEBHOOK_URL</span> in .env for Slack/Discord notifications on pipeline events, backtest completions, and sweep results.
               </p>
             </div>
           ) : (
