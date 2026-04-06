@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { get, post } from "../api/client";
-import type { BacktestStatus, DataFile, TradeRow } from "../api/types";
+import type { BacktestStatus, DataFile, SweepResultRow, SweepStatus, TradeRow, WalkForwardResult } from "../api/types";
 import DataTable from "../components/common/DataTable";
 import { toast } from "../components/common/Toast";
-import { Play, Square, RotateCcw, Download, ChevronDown, ChevronUp, Trash2 } from "lucide-react";
+import { Play, Square, RotateCcw, Download, ChevronDown, ChevronUp, Trash2, Search, FlaskConical, GitCompare } from "lucide-react";
 import {
   ComposedChart,
   Area,
@@ -69,9 +69,16 @@ interface RunHistoryEntry {
   min_spread_bps: number;
   fee_bps: number;
   position_size_sol: number;
+  venue: string;
   total_trades: number;
   total_profit_sol: number;
   results: BacktestStatus["results"];
+}
+
+interface SweepParamConfig {
+  min: number;
+  max: number;
+  step: number;
 }
 
 const HISTORY_KEY = "backtest_run_history";
@@ -208,6 +215,22 @@ export default function Backtest() {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [selectedHistoryId, setSelectedHistoryId] = useState<string | null>(null);
 
+  // ── Sweep state (Phase 4) ──
+  const [sweepOpen, setSweepOpen] = useState(false);
+  const [sweepParams, setSweepParams] = useState<Record<string, SweepParamConfig>>({
+    min_spread_bps: { min: 3, max: 15, step: 3 },
+    fee_bps: { min: 5, max: 20, step: 5 },
+    position_size_sol: { min: 0.05, max: 0.5, step: 0.05 },
+  });
+  const [sweepStatus, setSweepStatus] = useState<SweepStatus>({ state: "idle", progress: 0, total: 0 });
+  const sweepPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [walkForward, setWalkForward] = useState(false);
+  const [trainPct, setTrainPct] = useState(0.7);
+
+  // ── Comparison state (Phase 4) ──
+  const [compareIds, setCompareIds] = useState<[string | null, string | null]>([null, null]);
+  const [compareOpen, setCompareOpen] = useState(false);
+
   // Fetch strategy info when strategy changes
   useEffect(() => {
     if (!config.strategy) return;
@@ -254,13 +277,14 @@ export default function Backtest() {
             // Save to history if completed with results
             if (s.state === "completed" && s.results) {
               const entry: RunHistoryEntry = {
-                id: `${Date.now()}`,
-                timestamp: new Date().toISOString(),
+                id: s.results.run_id ?? `${Date.now()}`,
+                timestamp: s.results.run_timestamp ?? new Date().toISOString(),
                 strategy: config.strategy,
                 data_file: config.data_file,
                 min_spread_bps: config.min_spread_bps,
                 fee_bps: config.fee_bps,
                 position_size_sol: config.position_size_sol,
+                venue: config.venue,
                 total_trades: s.results.total_trades,
                 total_profit_sol: s.results.total_profit_sol,
                 results: s.results,
@@ -320,6 +344,93 @@ export default function Backtest() {
     setStatus({ state: "completed", results: entry.results });
     setPage(1);
   }
+
+  // ── Sweep helpers (Phase 4) ──
+  function generateSweepValues(p: SweepParamConfig): number[] {
+    const values: number[] = [];
+    for (let v = p.min; v <= p.max + 1e-9; v += p.step) {
+      values.push(Math.round(v * 1000) / 1000);
+    }
+    return values;
+  }
+
+  function sweepTotalCombinations(): number {
+    return Object.values(sweepParams).reduce(
+      (acc, p) => acc * generateSweepValues(p).length,
+      1,
+    );
+  }
+
+  async function handleStartSweep() {
+    if (!config.data_file) {
+      toast("Select a data file first", "warning");
+      return;
+    }
+    const sweep: Record<string, number[]> = {};
+    for (const [key, p] of Object.entries(sweepParams)) {
+      sweep[key] = generateSweepValues(p);
+    }
+
+    const endpoint = walkForward ? "/api/backtest/walk-forward" : "/api/backtest/sweep";
+    const body: Record<string, unknown> = {
+      data_file: config.data_file,
+      strategy: config.strategy,
+      sweep,
+      config: {
+        venue: config.venue,
+        simulate_fills: config.simulate_fills,
+      },
+    };
+    if (walkForward) {
+      body.train_pct = trainPct;
+    }
+
+    try {
+      await post(endpoint, body);
+      setSweepStatus({ state: "running", progress: 0, total: sweepTotalCombinations() });
+      // Start polling
+      if (sweepPollRef.current) clearInterval(sweepPollRef.current);
+      sweepPollRef.current = setInterval(async () => {
+        try {
+          const s = await get<SweepStatus>("/api/backtest/sweep/status");
+          setSweepStatus(s);
+          if (s.state !== "running") {
+            clearInterval(sweepPollRef.current!);
+            sweepPollRef.current = null;
+          }
+        } catch {
+          clearInterval(sweepPollRef.current!);
+          sweepPollRef.current = null;
+        }
+      }, 1500);
+    } catch {
+      toast("Failed to start sweep", "error");
+    }
+  }
+
+  function handleUseBestParams(params: Record<string, number>) {
+    setConfig((c) => ({
+      ...c,
+      min_spread_bps: params.min_spread_bps ?? c.min_spread_bps,
+      fee_bps: params.fee_bps ?? c.fee_bps,
+      position_size_sol: params.position_size_sol ?? c.position_size_sol,
+    }));
+    toast("Best params applied to config", "success");
+  }
+
+  // ── Comparison helpers (Phase 4) ──
+  function toggleCompare(id: string) {
+    setCompareIds(([a, b]) => {
+      if (a === id) return [null, b];
+      if (b === id) return [a, null];
+      if (!a) return [id, b];
+      if (!b) return [a, id];
+      return [id, b]; // replace first
+    });
+  }
+
+  const compareA = compareIds[0] ? history.find((h) => h.id === compareIds[0]) : null;
+  const compareB = compareIds[1] ? history.find((h) => h.id === compareIds[1]) : null;
 
   // Determine active results (from current run or selected history entry)
   const activeResults =
@@ -946,6 +1057,295 @@ export default function Backtest() {
         )}
       </div>
 
+      {/* ── Parameter Sweep Panel (Phase 4) ── */}
+      <div className="bg-bg-panel border border-border rounded overflow-hidden">
+        <button
+          onClick={() => setSweepOpen((o) => !o)}
+          className="w-full flex items-center justify-between px-3 py-2 hover:bg-bg-active/30 transition-colors"
+        >
+          <span className="text-[10px] text-text-secondary uppercase tracking-wider font-semibold flex items-center gap-1.5">
+            <Search size={11} />
+            Parameter Sweep
+          </span>
+          {sweepOpen ? (
+            <ChevronUp size={13} className="text-text-secondary" />
+          ) : (
+            <ChevronDown size={13} className="text-text-secondary" />
+          )}
+        </button>
+
+        {sweepOpen && (
+          <div className="border-t border-border p-3 flex flex-col gap-3">
+            <p className="text-[10px] text-text-secondary">
+              Grid search across parameter ranges. Each combination runs a full backtest.
+            </p>
+
+            {/* Param range inputs */}
+            {Object.entries(sweepParams).map(([key, p]) => (
+              <div key={key} className="flex items-end gap-2">
+                <span className="text-[10px] text-text-secondary w-28 shrink-0 font-mono">{key}</span>
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-[9px] text-text-secondary">Min</span>
+                  <input
+                    type="number"
+                    step="any"
+                    value={p.min}
+                    onChange={(e) =>
+                      setSweepParams((s) => ({ ...s, [key]: { ...s[key], min: Number(e.target.value) } }))
+                    }
+                    className="bg-bg-main border border-border rounded px-1.5 py-1 text-[11px] font-mono text-text-primary w-16 focus:outline-none focus:border-accent-indigo"
+                  />
+                </div>
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-[9px] text-text-secondary">Max</span>
+                  <input
+                    type="number"
+                    step="any"
+                    value={p.max}
+                    onChange={(e) =>
+                      setSweepParams((s) => ({ ...s, [key]: { ...s[key], max: Number(e.target.value) } }))
+                    }
+                    className="bg-bg-main border border-border rounded px-1.5 py-1 text-[11px] font-mono text-text-primary w-16 focus:outline-none focus:border-accent-indigo"
+                  />
+                </div>
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-[9px] text-text-secondary">Step</span>
+                  <input
+                    type="number"
+                    step="any"
+                    value={p.step}
+                    onChange={(e) =>
+                      setSweepParams((s) => ({ ...s, [key]: { ...s[key], step: Number(e.target.value) } }))
+                    }
+                    className="bg-bg-main border border-border rounded px-1.5 py-1 text-[11px] font-mono text-text-primary w-16 focus:outline-none focus:border-accent-indigo"
+                  />
+                </div>
+                <span className="text-[9px] text-text-secondary whitespace-nowrap">
+                  {generateSweepValues(p).length} vals
+                </span>
+              </div>
+            ))}
+
+            <div className="text-[10px] text-text-secondary">
+              Total combinations: <span className="font-mono text-text-primary font-bold">{sweepTotalCombinations()}</span>
+            </div>
+
+            {/* Walk-Forward toggle */}
+            <div className="flex flex-col gap-2 bg-bg-main/50 rounded p-2 border border-border/40">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={walkForward}
+                  onChange={(e) => setWalkForward(e.target.checked)}
+                  className="accent-accent-indigo"
+                />
+                <span className="text-xs text-text-secondary flex items-center gap-1">
+                  <FlaskConical size={11} />
+                  Walk-Forward Validation
+                </span>
+              </label>
+              {walkForward && (
+                <div className="flex items-center gap-2 pl-5">
+                  <span className="text-[10px] text-text-secondary">Train/Test split:</span>
+                  <input
+                    type="range"
+                    min={0.5}
+                    max={0.9}
+                    step={0.05}
+                    value={trainPct}
+                    onChange={(e) => setTrainPct(Number(e.target.value))}
+                    className="flex-1 accent-accent-indigo h-1"
+                  />
+                  <span className="text-[10px] font-mono text-text-primary w-14">
+                    {Math.round(trainPct * 100)}/{Math.round((1 - trainPct) * 100)}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            <button
+              onClick={handleStartSweep}
+              disabled={!config.data_file || sweepStatus.state === "running"}
+              className="flex items-center justify-center gap-2 px-4 py-2 text-xs font-semibold bg-accent-amber/20 border border-accent-amber/50 text-accent-amber rounded hover:bg-accent-amber/30 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+              <Search size={12} />
+              {walkForward ? "Run Walk-Forward" : "Run Sweep"} ({sweepTotalCombinations()} combos)
+            </button>
+
+            {/* Sweep progress */}
+            {sweepStatus.state === "running" && (
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-accent-amber animate-pulse" />
+                  <span className="text-[11px] font-mono text-accent-amber">
+                    Running {sweepStatus.progress}/{sweepStatus.total}...
+                  </span>
+                </div>
+                <div className="w-full h-1.5 bg-bg-main rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-accent-amber rounded-full transition-all"
+                    style={{ width: `${sweepStatus.total > 0 ? (sweepStatus.progress / sweepStatus.total) * 100 : 0}%` }}
+                  />
+                </div>
+                {sweepStatus.current_params && (
+                  <div className="text-[9px] text-text-secondary font-mono">
+                    Current: {JSON.stringify(sweepStatus.current_params)}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Sweep results */}
+            {sweepStatus.state === "completed" && sweepStatus.results && sweepStatus.results.length > 0 && (
+              <div className="flex flex-col gap-2">
+                {/* Check if this is a walk-forward result */}
+                {(sweepStatus.results[0] as unknown as WalkForwardResult)?.type === "walk_forward" ? (
+                  (() => {
+                    const wf = sweepStatus.results[0] as unknown as WalkForwardResult;
+                    return (
+                      <div className="flex flex-col gap-2">
+                        <div className="text-[10px] text-text-secondary uppercase tracking-wider font-semibold">
+                          Walk-Forward Results
+                        </div>
+                        {wf.overfit_warning && (
+                          <div className="bg-accent-red/10 border border-accent-red/30 rounded px-2 py-1.5 text-[10px] text-accent-red">
+                            Overfit warning: in-sample Sharpe is {">"}2x out-of-sample. Results may not generalize.
+                          </div>
+                        )}
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="bg-bg-main/50 rounded p-2 border border-border/40">
+                            <div className="text-[9px] text-text-secondary uppercase mb-1">
+                              In-Sample ({wf.train_rows.toLocaleString()} rows, {Math.round(wf.train_pct * 100)}%)
+                            </div>
+                            <div className="grid grid-cols-2 gap-1 text-[10px]">
+                              <div>
+                                <span className="text-text-secondary">Trades</span>
+                                <span className="block font-mono text-text-primary">{wf.in_sample.trades}</span>
+                              </div>
+                              <div>
+                                <span className="text-text-secondary">Sharpe</span>
+                                <span className="block font-mono text-accent-green">{wf.in_sample.sharpe.toFixed(2)}</span>
+                              </div>
+                              <div>
+                                <span className="text-text-secondary">P&L</span>
+                                <span className={`block font-mono ${wf.in_sample.profit_sol >= 0 ? "text-accent-green" : "text-accent-red"}`}>
+                                  {wf.in_sample.profit_sol >= 0 ? "+" : ""}{wf.in_sample.profit_sol.toFixed(4)}
+                                </span>
+                              </div>
+                              <div>
+                                <span className="text-text-secondary">Drawdown</span>
+                                <span className="block font-mono text-accent-red">{wf.in_sample.drawdown.toFixed(4)}</span>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="bg-bg-main/50 rounded p-2 border border-border/40">
+                            <div className="text-[9px] text-text-secondary uppercase mb-1">
+                              Out-of-Sample ({wf.test_rows.toLocaleString()} rows, {Math.round((1 - wf.train_pct) * 100)}%)
+                            </div>
+                            <div className="grid grid-cols-2 gap-1 text-[10px]">
+                              <div>
+                                <span className="text-text-secondary">Trades</span>
+                                <span className="block font-mono text-text-primary">{wf.out_of_sample.trades}</span>
+                              </div>
+                              <div>
+                                <span className="text-text-secondary">Sharpe</span>
+                                <span className={`block font-mono ${wf.out_of_sample.sharpe >= wf.in_sample.sharpe * 0.5 ? "text-accent-green" : "text-accent-red"}`}>
+                                  {wf.out_of_sample.sharpe.toFixed(2)}
+                                </span>
+                              </div>
+                              <div>
+                                <span className="text-text-secondary">P&L</span>
+                                <span className={`block font-mono ${wf.out_of_sample.profit_sol >= 0 ? "text-accent-green" : "text-accent-red"}`}>
+                                  {wf.out_of_sample.profit_sol >= 0 ? "+" : ""}{wf.out_of_sample.profit_sol.toFixed(4)}
+                                </span>
+                              </div>
+                              <div>
+                                <span className="text-text-secondary">Drawdown</span>
+                                <span className="block font-mono text-accent-red">{wf.out_of_sample.drawdown.toFixed(4)}</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="text-[10px] text-text-secondary">
+                          Best params: <span className="font-mono text-text-primary">{JSON.stringify(wf.best_params)}</span>
+                        </div>
+                        <button
+                          onClick={() => handleUseBestParams(wf.best_params)}
+                          className="flex items-center justify-center gap-1.5 px-3 py-1.5 text-[11px] bg-accent-green/10 border border-accent-green/40 text-accent-green rounded hover:bg-accent-green/20 transition-colors"
+                        >
+                          Use Best Params
+                        </button>
+                      </div>
+                    );
+                  })()
+                ) : (
+                  <>
+                    <div className="text-[10px] text-text-secondary uppercase tracking-wider font-semibold">
+                      Sweep Results ({(sweepStatus.results as SweepResultRow[]).length} combinations)
+                    </div>
+                    <div className="overflow-x-auto max-h-64 overflow-y-auto">
+                      <table className="w-full text-[10px]">
+                        <thead>
+                          <tr className="text-text-secondary border-b border-border/40">
+                            <th className="text-left py-1 px-1">#</th>
+                            {Object.keys((sweepStatus.results as SweepResultRow[])[0]?.params ?? {}).map((k) => (
+                              <th key={k} className="text-left py-1 px-1 font-mono">{k}</th>
+                            ))}
+                            <th className="text-right py-1 px-1">Trades</th>
+                            <th className="text-right py-1 px-1">P&L</th>
+                            <th className="text-right py-1 px-1">Win%</th>
+                            <th className="text-right py-1 px-1">Sharpe</th>
+                            <th className="text-right py-1 px-1">Drawdown</th>
+                            <th className="text-right py-1 px-1">PF</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(sweepStatus.results as SweepResultRow[]).map((row, i) => (
+                            <tr
+                              key={i}
+                              className={`border-b border-border/20 ${i === 0 ? "bg-accent-green/5" : ""}`}
+                            >
+                              <td className="py-1 px-1 text-text-secondary">{i + 1}</td>
+                              {Object.values(row.params).map((v, j) => (
+                                <td key={j} className="py-1 px-1 font-mono text-text-primary">{v}</td>
+                              ))}
+                              <td className="text-right py-1 px-1 font-mono">{row.total_trades}</td>
+                              <td className={`text-right py-1 px-1 font-mono ${(row.total_profit_sol ?? 0) >= 0 ? "text-accent-green" : "text-accent-red"}`}>
+                                {(row.total_profit_sol ?? 0) >= 0 ? "+" : ""}{(row.total_profit_sol ?? 0).toFixed(4)}
+                              </td>
+                              <td className="text-right py-1 px-1 font-mono">
+                                {((row.win_rate ?? 0) * 100).toFixed(0)}%
+                              </td>
+                              <td className={`text-right py-1 px-1 font-mono font-bold ${(row.sharpe_ratio ?? 0) > 1 ? "text-accent-green" : (row.sharpe_ratio ?? 0) > 0 ? "text-accent-amber" : "text-accent-red"}`}>
+                                {(row.sharpe_ratio ?? 0).toFixed(2)}
+                              </td>
+                              <td className="text-right py-1 px-1 font-mono text-accent-red">
+                                {(row.max_drawdown_sol ?? 0).toFixed(4)}
+                              </td>
+                              <td className="text-right py-1 px-1 font-mono">
+                                {(row.profit_factor ?? 0) > 100 ? "\u221E" : (row.profit_factor ?? 0).toFixed(1)}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    {(sweepStatus.results as SweepResultRow[])[0] && !(sweepStatus.results as SweepResultRow[])[0].error && (
+                      <button
+                        onClick={() => handleUseBestParams((sweepStatus.results as SweepResultRow[])[0].params)}
+                        className="flex items-center justify-center gap-1.5 px-3 py-1.5 text-[11px] bg-accent-green/10 border border-accent-green/40 text-accent-green rounded hover:bg-accent-green/20 transition-colors"
+                      >
+                        Use Best Params (Sharpe {(sweepStatus.results as SweepResultRow[])[0].sharpe_ratio.toFixed(2)})
+                      </button>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
       {/* Recent Runs */}
       <div className="bg-bg-panel border border-border rounded overflow-hidden">
         <button
@@ -984,53 +1384,183 @@ export default function Backtest() {
               </div>
             ) : (
               <div className="divide-y divide-border/40">
+                {history.length >= 2 && (
+                  <div className="px-3 py-1.5 flex items-center justify-between bg-bg-main/30">
+                    <span className="text-[9px] text-text-secondary">
+                      Select 2 runs to compare ({compareIds.filter(Boolean).length}/2)
+                    </span>
+                    {compareIds[0] && compareIds[1] && (
+                      <button
+                        onClick={() => setCompareOpen(true)}
+                        className="flex items-center gap-1 px-2 py-0.5 text-[10px] text-accent-indigo border border-accent-indigo/30 rounded hover:bg-accent-indigo/10 transition-colors"
+                      >
+                        <GitCompare size={10} />
+                        Compare
+                      </button>
+                    )}
+                  </div>
+                )}
                 {history.map((entry) => (
-                  <button
+                  <div
                     key={entry.id}
-                    onClick={() => handleSelectHistoryRun(entry)}
-                    className={`w-full text-left px-3 py-2.5 hover:bg-bg-active/30 transition-colors flex items-center justify-between gap-3 ${
+                    className={`flex items-center gap-2 px-3 py-2.5 hover:bg-bg-active/30 transition-colors ${
                       selectedHistoryId === entry.id ? "bg-accent-indigo/10" : ""
                     }`}
                   >
-                    <div className="flex flex-col gap-0.5 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-text-primary font-mono truncate">
-                          {entry.strategy}
+                    {history.length >= 2 && (
+                      <input
+                        type="checkbox"
+                        checked={compareIds.includes(entry.id)}
+                        onChange={() => toggleCompare(entry.id)}
+                        className="accent-accent-indigo w-3 h-3 shrink-0"
+                        title="Select for comparison"
+                      />
+                    )}
+                    <button
+                      onClick={() => handleSelectHistoryRun(entry)}
+                      className="flex-1 text-left flex items-center justify-between gap-3 min-w-0"
+                    >
+                      <div className="flex flex-col gap-0.5 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-text-primary font-mono truncate">
+                            {entry.strategy}
+                          </span>
+                          <span className="text-[10px] text-text-secondary truncate">
+                            {entry.data_file}
+                          </span>
+                        </div>
+                        <div className="text-[10px] text-text-secondary">
+                          spread{"\u2265"}{entry.min_spread_bps}bps · fee={entry.fee_bps}bps · {entry.position_size_sol}SOL
+                          {entry.venue ? ` · ${entry.venue}` : ""}
+                        </div>
+                      </div>
+                      <div className="flex flex-col items-end gap-0.5 shrink-0">
+                        <span
+                          className={`text-xs font-mono font-semibold ${
+                            entry.total_profit_sol >= 0 ? "text-accent-green" : "text-accent-red"
+                          }`}
+                        >
+                          {entry.total_profit_sol >= 0 ? "+" : ""}
+                          {entry.total_profit_sol.toFixed(4)} SOL
                         </span>
-                        <span className="text-[10px] text-text-secondary truncate">
-                          {entry.data_file}
+                        <span className="text-[10px] text-text-secondary">
+                          {entry.total_trades} trades ·{" "}
+                          {new Date(entry.timestamp).toLocaleString(undefined, {
+                            month: "short",
+                            day: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
                         </span>
                       </div>
-                      <div className="text-[10px] text-text-secondary">
-                        spread≥{entry.min_spread_bps}bps · fee={entry.fee_bps}bps · {entry.position_size_sol}SOL
-                      </div>
-                    </div>
-                    <div className="flex flex-col items-end gap-0.5 shrink-0">
-                      <span
-                        className={`text-xs font-mono font-semibold ${
-                          entry.total_profit_sol >= 0 ? "text-accent-green" : "text-accent-red"
-                        }`}
-                      >
-                        {entry.total_profit_sol >= 0 ? "+" : ""}
-                        {entry.total_profit_sol.toFixed(4)} SOL
-                      </span>
-                      <span className="text-[10px] text-text-secondary">
-                        {entry.total_trades} trades ·{" "}
-                        {new Date(entry.timestamp).toLocaleString(undefined, {
-                          month: "short",
-                          day: "numeric",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
-                      </span>
-                    </div>
-                  </button>
+                    </button>
+                  </div>
                 ))}
               </div>
             )}
           </div>
         )}
       </div>
+
+      {/* ── Run Comparison Panel (Phase 4) ── */}
+      {compareOpen && compareA && compareB && (
+        <div className="bg-bg-panel border border-border rounded overflow-hidden">
+          <div className="flex items-center justify-between px-3 py-2 border-b border-border">
+            <span className="text-[10px] text-text-secondary uppercase tracking-wider font-semibold flex items-center gap-1.5">
+              <GitCompare size={11} />
+              Run Comparison
+            </span>
+            <button
+              onClick={() => { setCompareOpen(false); setCompareIds([null, null]); }}
+              className="text-[10px] text-text-secondary hover:text-text-primary transition-colors"
+            >
+              Close
+            </button>
+          </div>
+          <div className="p-3">
+            <ComparisonTable runA={compareA} runB={compareB} />
+          </div>
+        </div>
+      )}
     </div>
+  );
+}
+
+/* ── Comparison Table Component (Phase 4) ── */
+
+function ComparisonTable({ runA, runB }: { runA: RunHistoryEntry; runB: RunHistoryEntry }) {
+  const rA = runA.results;
+  const rB = runB.results;
+  if (!rA || !rB) return null;
+
+  const rows: Array<{ label: string; a: string; b: string; higherIsBetter: boolean }> = [
+    { label: "Strategy", a: runA.strategy, b: runB.strategy, higherIsBetter: true },
+    { label: "Total Trades", a: String(rA.total_trades), b: String(rB.total_trades), higherIsBetter: true },
+    { label: "Total P&L", a: `${rA.total_profit_sol >= 0 ? "+" : ""}${rA.total_profit_sol.toFixed(4)} SOL`, b: `${rB.total_profit_sol >= 0 ? "+" : ""}${rB.total_profit_sol.toFixed(4)} SOL`, higherIsBetter: true },
+    { label: "Win Rate", a: `${(rA.win_rate * 100).toFixed(1)}%`, b: `${(rB.win_rate * 100).toFixed(1)}%`, higherIsBetter: true },
+    { label: "Avg Spread", a: `${rA.avg_spread_bps.toFixed(1)} bps`, b: `${rB.avg_spread_bps.toFixed(1)} bps`, higherIsBetter: true },
+    { label: "Best Trade", a: `${rA.best_trade_sol.toFixed(4)} SOL`, b: `${rB.best_trade_sol.toFixed(4)} SOL`, higherIsBetter: true },
+    { label: "Worst Trade", a: `${rA.worst_trade_sol.toFixed(4)} SOL`, b: `${rB.worst_trade_sol.toFixed(4)} SOL`, higherIsBetter: false },
+  ];
+
+  if (rA.risk_metrics && rB.risk_metrics) {
+    rows.push(
+      { label: "Sharpe Ratio", a: rA.risk_metrics.sharpe_ratio.toFixed(2), b: rB.risk_metrics.sharpe_ratio.toFixed(2), higherIsBetter: true },
+      { label: "Max Drawdown", a: `${rA.risk_metrics.max_drawdown_sol.toFixed(4)} SOL`, b: `${rB.risk_metrics.max_drawdown_sol.toFixed(4)} SOL`, higherIsBetter: false },
+      { label: "Profit Factor", a: rA.risk_metrics.profit_factor > 100 ? "\u221E" : rA.risk_metrics.profit_factor.toFixed(2), b: rB.risk_metrics.profit_factor > 100 ? "\u221E" : rB.risk_metrics.profit_factor.toFixed(2), higherIsBetter: true },
+      { label: "Sortino Ratio", a: rA.risk_metrics.sortino_ratio > 100 ? "\u221E" : rA.risk_metrics.sortino_ratio.toFixed(2), b: rB.risk_metrics.sortino_ratio > 100 ? "\u221E" : rB.risk_metrics.sortino_ratio.toFixed(2), higherIsBetter: true },
+    );
+  }
+
+  function deltaColor(a: string, b: string, higherIsBetter: boolean): [string, string] {
+    const numA = parseFloat(a.replace(/[^0-9.\-]/g, ""));
+    const numB = parseFloat(b.replace(/[^0-9.\-]/g, ""));
+    if (isNaN(numA) || isNaN(numB) || numA === numB) return ["text-text-primary", "text-text-primary"];
+    const aWins = higherIsBetter ? numA > numB : numA < numB;
+    return aWins
+      ? ["text-accent-green", "text-accent-red"]
+      : ["text-accent-red", "text-accent-green"];
+  }
+
+  return (
+    <table className="w-full text-[11px]">
+      <thead>
+        <tr className="text-text-secondary border-b border-border/40">
+          <th className="text-left py-1.5 px-1">Metric</th>
+          <th className="text-right py-1.5 px-1">
+            <span className="font-mono">{runA.strategy}</span>
+            <div className="text-[9px] font-normal">
+              {new Date(runA.timestamp).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+            </div>
+          </th>
+          <th className="text-right py-1.5 px-1">
+            <span className="font-mono">{runB.strategy}</span>
+            <div className="text-[9px] font-normal">
+              {new Date(runB.timestamp).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+            </div>
+          </th>
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((row) => {
+          const [colorA, colorB] = deltaColor(row.a, row.b, row.higherIsBetter);
+          return (
+            <tr key={row.label} className="border-b border-border/20">
+              <td className="py-1.5 px-1 text-text-secondary">{row.label}</td>
+              <td className={`text-right py-1.5 px-1 font-mono ${colorA}`}>{row.a}</td>
+              <td className={`text-right py-1.5 px-1 font-mono ${colorB}`}>{row.b}</td>
+            </tr>
+          );
+        })}
+      </tbody>
+      <tfoot>
+        <tr className="text-[9px] text-text-secondary">
+          <td className="py-1.5 px-1" colSpan={3}>
+            Params: A = spread{"\u2265"}{runA.min_spread_bps}bps fee={runA.fee_bps}bps {runA.position_size_sol}SOL
+            {" "}| B = spread{"\u2265"}{runB.min_spread_bps}bps fee={runB.fee_bps}bps {runB.position_size_sol}SOL
+          </td>
+        </tr>
+      </tfoot>
+    </table>
   );
 }

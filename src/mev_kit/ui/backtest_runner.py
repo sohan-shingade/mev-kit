@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import importlib.util
 import json
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -181,6 +181,16 @@ class BacktestRunner:
             sink=self._sink,
         )
 
+        # Store run config for result versioning (Phase 4)
+        self._run_config = {
+            "strategy": config.get("strategy", "unknown"),
+            "data_file": data_path,
+            "venue": config.get("venue", "aggregated"),
+            "min_spread_bps": config.get("min_spread_bps"),
+            "fee_bps": config.get("fee_bps"),
+            "position_size_sol": config.get("position_size_sol"),
+        }
+
         try:
             await self._pipeline.run()
             self._state = "completed"
@@ -221,6 +231,9 @@ class BacktestRunner:
                     "or (3) the data window is too short. "
                     "Try a different strategy or adjust parameters."
                 ),
+                "run_id": datetime.now(UTC).strftime("%Y%m%d_%H%M%S"),
+                "run_timestamp": datetime.now(UTC).isoformat(),
+                "run_config": getattr(self, "_run_config", {}),
             }
 
         from mev_kit.utils.precision import ProfitAccumulator, sol_to_lamports
@@ -312,6 +325,11 @@ class BacktestRunner:
                 )
         if warnings:
             result["warnings"] = warnings
+
+        # ── Result versioning (Phase 4) ──
+        result["run_id"] = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
+        result["run_timestamp"] = datetime.now(UTC).isoformat()
+        result["run_config"] = getattr(self, "_run_config", {})
 
         return result
 

@@ -139,6 +139,51 @@ export interface BacktestResults {
   equity_curve?: EquityCurvePoint[];
   risk_metrics?: RiskMetrics;
   hourly_breakdown?: HourlyBreakdown[];
+  run_id?: string;
+  run_timestamp?: string;
+  run_config?: Record<string, unknown>;
+}
+
+export interface SweepResultRow {
+  params: Record<string, number>;
+  total_trades: number;
+  total_profit_sol: number;
+  win_rate: number;
+  sharpe_ratio: number;
+  max_drawdown_sol: number;
+  profit_factor: number;
+  avg_spread_bps: number;
+  error?: string;
+}
+
+export interface SweepStatus {
+  state: "idle" | "running" | "completed" | "error";
+  progress: number;
+  total: number;
+  current_params?: Record<string, number>;
+  results?: SweepResultRow[];
+}
+
+export interface WalkForwardResult {
+  type: "walk_forward";
+  train_results: SweepResultRow[];
+  best_params: Record<string, number>;
+  in_sample: {
+    trades: number;
+    profit_sol: number;
+    sharpe: number;
+    drawdown: number;
+  };
+  out_of_sample: {
+    trades: number;
+    profit_sol: number;
+    sharpe: number;
+    drawdown: number;
+  };
+  overfit_warning: boolean;
+  train_pct: number;
+  train_rows: number;
+  test_rows: number;
 }
 
 export interface AnalysisSummary {
