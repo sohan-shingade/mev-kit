@@ -191,12 +191,12 @@ This is an alpha research toolkit. Be aware of these gaps:
 
 ### Roadmap to production
 
-1. ~~Replace Jito bundle placeholders with real `solders`-built, keypair-signed transactions~~ ✅ Done
-2. ~~Replace RPC simulator stub with real transaction construction + `simulateTransaction`~~ ✅ Done
-3. Calibrate fill simulation against real execution data (Tardis L2 book snapshots)
-4. ~~Make CLI strategy selection dynamic (not hardcoded to one detector)~~ ✅ Done
-5. Expand pool registry beyond SOL/USDC Raydium (dynamic account lookup via `getAccountInfo`)
-6. End-to-end mainnet test with real Jito bundle submission
+1. ~~Replace Jito bundle placeholders with real `solders`-built, keypair-signed transactions~~ ✅
+2. ~~Replace RPC simulator stub with real transaction construction + `simulateTransaction`~~ ✅
+3. ~~Calibrate fill simulation against real order book data (Tardis free tier)~~ ✅
+4. ~~Make CLI strategy selection dynamic (not hardcoded to one detector)~~ ✅
+5. ~~Expand pool registry beyond SOL/USDC (dynamic on-chain account lookup)~~ ✅
+6. ~~End-to-end mainnet test script (`scripts/test_mainnet_bundle.py --dry-run`)~~ ✅
 
 ## License
 
