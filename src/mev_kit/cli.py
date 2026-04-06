@@ -108,20 +108,21 @@ def ui(config_dir: str, data_dir: str, host: str, port: int, no_open: bool) -> N
 async def _run_backtest(config_path: str, data_path: str, output: str | None) -> None:
     """Execute backtest pipeline."""
     from mev_kit.adapters.ingest.parquet_replay import ParquetReplayAdapter
-    from mev_kit.adapters.simulators.base import PassthroughSimulator
+    from mev_kit.adapters.simulators.fill_simulator import FillSimulator
     from mev_kit.adapters.sinks.paper_trade import BacktestSink
     from mev_kit.pipeline.runner import Pipeline
-    from mev_kit.strategies.cex_dex_arb import CEXDEXArbDetector
+    from mev_kit.ui.backtest_runner import _load_detector, detect_source_type
 
     config = _load_config(config_path)
 
-    adapter = ParquetReplayAdapter({"path": data_path, "source_type": "pool"})
-    detector = CEXDEXArbDetector({
+    source_type = detect_source_type(data_path)
+    adapter = ParquetReplayAdapter({"path": data_path, "source_type": source_type})
+    detector = _load_detector(config.strategy, {
         "min_spread_bps": config.min_spread_bps,
         "pair": "SOL/USDC",
         "position_size_sol": config.position_size_sol,
     })
-    simulator = PassthroughSimulator({})
+    simulator = FillSimulator({"venue": "aggregated"})
     sink = BacktestSink({"output_path": output})
 
     pipeline = Pipeline(

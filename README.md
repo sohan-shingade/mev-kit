@@ -1,18 +1,27 @@
 # mev-kit
 
-Open-source Solana MEV framework for strategy development, backtesting, and execution.
+> **Status: Alpha (v0.1.0)** — research and paper-trading toolkit. Live execution is scaffolded but uses placeholder transactions. Do not use with real funds without replacing the execution stubs.
 
-Detect, simulate, backtest, and execute MEV strategies on Solana with a unified pipeline. Same strategy code runs identically in backtest, paper-trade, and live-execution modes.
+Open-source Solana MEV research and paper-trading kit with experimental live-execution scaffolding.
 
-## What it does
+Build, backtest, and paper-trade MEV strategies on Solana. The architecture is designed so the same detector code can eventually run across backtest, paper, and live modes — but **the live execution path is not production-ready yet** (see [Current Limitations](#current-limitations)).
 
-- **5-layer pipeline**: Source → Detector → Simulator → Sink → Monitor
-- **Web UI dashboard**: Real-time monitoring, backtesting, strategy editor, data management
-- **Multi-venue data**: Binance, Coinbase, Birdeye, Helius, Bybit, Jupiter — auto-merge with lag correction
-- **Realistic fill simulation**: Venue-specific fees, AMM slippage, Jito landing rates, two-leg arb modeling
+## What works today
+
+- **Strategy research pipeline**: Source → Detector → Simulator → Sink → Monitor
+- **Web UI**: Backtesting, strategy editor (Monaco), data management, risk analytics
+- **Multi-venue data**: Binance, Coinbase, Birdeye, Helius — auto-merge with lookahead bias prevention
+- **Fill simulation**: Venue-specific fee/slippage modeling for backtests (estimated, not exact — see limitations)
 - **Risk analytics**: Sharpe ratio, max drawdown, equity curves, hourly heatmaps, survivorship bias warnings
 - **Strategy optimization**: Parameter sweeps, walk-forward validation, result versioning
 - **6 example detectors**: CEX-DEX arb, price momentum, spread tracker, multi-pool arb, liquidation, statistical arb
+
+## What doesn't work yet
+
+- **Live execution**: `JitoBundleSink` builds JSON placeholders, not real signed Solana transactions. The `mev-kit live` command exists but submitting bundles will fail.
+- **RPC simulation**: `RPCSimulator` sends an empty transaction to `simulateTransaction`. It needs real transaction construction via `solders` to be meaningful.
+- **Paper trading**: Requires live WebSocket connections (Helius + Binance). Works when API keys are configured but the pipeline may die silently on connection failures.
+- **Fill simulation accuracy**: Slippage uses estimated pool depth (not real on-chain reserves). Accuracy is within ~2-5x of real execution, not exact.
 
 ## Quick start
 
@@ -165,6 +174,26 @@ pytest tests/ -v          # 225 tests
 ruff check src/ tests/    # Lint
 cd ui && npx tsc --noEmit # TypeScript
 ```
+
+## Current Limitations
+
+This is an alpha research toolkit. Be aware of these gaps:
+
+| Area | Status | Gap |
+|------|--------|-----|
+| **Backtesting** | Working | Fill simulation uses estimated pool depth, not real on-chain reserves. P&L is directionally correct but not exact. |
+| **Paper trading** | Working (with keys) | Requires Helius + Binance WebSocket connections. May fail silently on connection drops. |
+| **Live execution** | Scaffolded, not functional | `JitoBundleSink` builds placeholder JSON objects, not real signed Solana transactions. Do not use with real funds. |
+| **RPC simulation** | Stub | Sends empty transaction to `simulateTransaction`. Needs real tx construction via `solders`. |
+| **Strategy generality** | Limited | CLI commands hardcode `CEXDEXArbDetector` and `SOL/USDC`. The web UI is more flexible. |
+| **Fill accuracy** | ~2-5x of reality | Slippage, landing rates, and competition modeled with estimates, not empirical data. |
+
+### Roadmap to production
+
+1. Replace Jito bundle placeholders with real `solders`-built, keypair-signed transactions
+2. Replace RPC simulator stub with real transaction construction + `simulateTransaction`
+3. Calibrate fill simulation against real execution data (Tardis L2 book snapshots)
+4. Make CLI strategy selection dynamic (not hardcoded to one detector)
 
 ## License
 
