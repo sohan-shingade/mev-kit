@@ -94,6 +94,35 @@ export interface CostBreakdown {
   landing_rate: number;
 }
 
+export interface EquityCurvePoint {
+  timestamp: string;
+  pnl: number;
+  drawdown: number;
+  high_water: number;
+}
+
+export interface RiskMetrics {
+  sharpe_ratio: number;
+  sortino_ratio: number;
+  calmar_ratio: number;
+  profit_factor: number;
+  max_drawdown_sol: number;
+  max_drawdown_duration: number;
+  avg_win_sol: number;
+  avg_loss_sol: number;
+  max_win_streak: number;
+  max_loss_streak: number;
+  gross_profit_sol: number;
+  gross_loss_sol: number;
+}
+
+export interface HourlyBreakdown {
+  hour: number;
+  trade_count: number;
+  total_pnl: number;
+  win_rate: number;
+}
+
 export interface BacktestResults {
   total_trades: number;
   total_profit_sol: number;
@@ -107,6 +136,9 @@ export interface BacktestResults {
   fill_stats?: FillStats;
   cost_breakdown?: CostBreakdown;
   warnings?: string[];
+  equity_curve?: EquityCurvePoint[];
+  risk_metrics?: RiskMetrics;
+  hourly_breakdown?: HourlyBreakdown[];
 }
 
 export interface AnalysisSummary {

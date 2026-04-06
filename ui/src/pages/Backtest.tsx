@@ -4,6 +4,15 @@ import type { BacktestStatus, DataFile, TradeRow } from "../api/types";
 import DataTable from "../components/common/DataTable";
 import { toast } from "../components/common/Toast";
 import { Play, Square, RotateCcw, Download, ChevronDown, ChevronUp, Trash2 } from "lucide-react";
+import {
+  ComposedChart,
+  Area,
+  Line,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
 
 interface StrategyOption {
   name: string;
@@ -494,6 +503,83 @@ export default function Backtest() {
                 <span className="text-text-secondary block">Land Rate</span>
                 <span className="font-mono text-accent-green">{(r.cost_breakdown.landing_rate * 100).toFixed(1)}%</span>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Risk Metrics Cards (Phase 3) */}
+        {r.risk_metrics && (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+            <SummaryCard
+              label="Sharpe Ratio"
+              value={r.risk_metrics.sharpe_ratio.toFixed(2)}
+              color={r.risk_metrics.sharpe_ratio > 1 ? "text-accent-green" : r.risk_metrics.sharpe_ratio > 0 ? "text-accent-amber" : "text-accent-red"}
+            />
+            <SummaryCard
+              label="Max Drawdown"
+              value={`${r.risk_metrics.max_drawdown_sol.toFixed(4)} SOL`}
+              color="text-accent-red"
+            />
+            <SummaryCard
+              label="Profit Factor"
+              value={r.risk_metrics.profit_factor > 100 ? "\u221E" : r.risk_metrics.profit_factor.toFixed(2)}
+              color={r.risk_metrics.profit_factor > 1.5 ? "text-accent-green" : "text-accent-amber"}
+            />
+            <SummaryCard
+              label="Sortino Ratio"
+              value={r.risk_metrics.sortino_ratio > 100 ? "\u221E" : r.risk_metrics.sortino_ratio.toFixed(2)}
+              color={r.risk_metrics.sortino_ratio > 1.5 ? "text-accent-green" : "text-accent-amber"}
+            />
+            <SummaryCard label="Avg Win" value={`+${r.risk_metrics.avg_win_sol.toFixed(6)} SOL`} color="text-accent-green" />
+            <SummaryCard label="Avg Loss" value={`${r.risk_metrics.avg_loss_sol.toFixed(6)} SOL`} color="text-accent-red" />
+            <SummaryCard label="Win Streak" value={String(r.risk_metrics.max_win_streak)} />
+            <SummaryCard label="Loss Streak" value={String(r.risk_metrics.max_loss_streak)} color="text-accent-red" />
+          </div>
+        )}
+
+        {/* Equity Curve & Drawdown Chart (Phase 3) */}
+        {r.equity_curve && r.equity_curve.length > 0 && (
+          <div className="bg-bg-panel/30 border border-border/40 rounded p-3">
+            <div className="text-[10px] text-text-secondary uppercase tracking-wider mb-2">Equity Curve & Drawdown</div>
+            <ResponsiveContainer width="100%" height={180}>
+              <ComposedChart data={r.equity_curve} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+                <XAxis dataKey="timestamp" tick={false} />
+                <YAxis yAxisId="pnl" tick={{ fontSize: 9, fill: "#5c6370" }} />
+                <YAxis yAxisId="dd" orientation="right" tick={{ fontSize: 9, fill: "#5c6370" }} />
+                <Tooltip contentStyle={{ backgroundColor: "#0e0e16", border: "1px solid #1c1a28", fontSize: 10 }} />
+                <Area yAxisId="dd" type="monotone" dataKey="drawdown" fill="#f43f5e" fillOpacity={0.15} stroke="none" />
+                <Line yAxisId="pnl" type="monotone" dataKey="pnl" stroke="#14f195" strokeWidth={1.5} dot={false} />
+                <Line yAxisId="pnl" type="monotone" dataKey="high_water" stroke="#9945ff" strokeWidth={1} dot={false} strokeDasharray="3 3" />
+              </ComposedChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+
+        {/* Hourly Breakdown Heatmap (Phase 3) */}
+        {r.hourly_breakdown && (
+          <div className="bg-bg-panel/30 border border-border/40 rounded p-3">
+            <div className="text-[10px] text-text-secondary uppercase tracking-wider mb-2">P&L by Hour (UTC)</div>
+            <div className="flex gap-px">
+              {r.hourly_breakdown.map((h) => {
+                const maxPnl = Math.max(...r.hourly_breakdown!.map((x) => Math.abs(x.total_pnl)), 0.0001);
+                const intensity = Math.abs(h.total_pnl) / maxPnl;
+                const bg = h.total_pnl >= 0
+                  ? `rgba(20, 241, 149, ${intensity * 0.4})`
+                  : `rgba(244, 63, 94, ${intensity * 0.4})`;
+                return (
+                  <div
+                    key={h.hour}
+                    className="flex-1 text-center py-2 text-[9px]"
+                    style={{ backgroundColor: bg }}
+                    title={`${h.hour}:00 UTC \u2014 ${h.trade_count} trades, ${h.total_pnl >= 0 ? "+" : ""}${h.total_pnl.toFixed(4)} SOL, ${(h.win_rate * 100).toFixed(0)}% win`}
+                  >
+                    <div className="text-text-secondary">{h.hour}</div>
+                    <div className={`font-mono ${h.total_pnl >= 0 ? "text-accent-green" : "text-accent-red"}`}>
+                      {h.trade_count > 0 ? (h.total_pnl >= 0 ? "+" : "") + h.total_pnl.toFixed(3) : "\u2014"}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}

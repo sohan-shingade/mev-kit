@@ -283,6 +283,13 @@ class BacktestRunner:
                     ),
                 }
 
+        # ── Risk analytics (Phase 3) ──
+        from mev_kit.utils.risk_metrics import compute_equity_curve, compute_risk_metrics, compute_hourly_breakdown
+
+        result["equity_curve"] = compute_equity_curve(results)
+        result["risk_metrics"] = compute_risk_metrics(results)
+        result["hourly_breakdown"] = compute_hourly_breakdown(results)
+
         # ── Fix 2.5: Survivorship bias warnings ──
         warnings: list[str] = []
         if result["win_rate"] > 0.90 and result["total_trades"] > 10:
