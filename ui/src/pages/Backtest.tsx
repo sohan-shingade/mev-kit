@@ -166,6 +166,34 @@ export default function Backtest() {
       .catch(() => setFileSources(null));
   }, [config.data_file]);
 
+  // Auto-set execution venue based on selected data sources
+  useEffect(() => {
+    if (!fileSources) return;
+    const activeSources = config.use_sources.length > 0
+      ? fileSources.sources.filter((s) => config.use_sources.includes(s.type))
+      : fileSources.sources;
+
+    const hasCex = activeSources.some((s) => s.type === "cex");
+    const hasDex = activeSources.some((s) => s.type === "dex");
+
+    if (hasCex && !hasDex) {
+      // Only CEX data selected — match venue to the CEX source
+      const cexSource = activeSources.find((s) => s.type === "cex");
+      const venueName = cexSource?.venue?.toLowerCase() ?? "";
+      if (venueName.includes("binance")) {
+        setConfig((c) => c.venue !== "binance" ? { ...c, venue: "binance" } : c);
+      } else if (venueName.includes("coinbase")) {
+        setConfig((c) => c.venue !== "coinbase" ? { ...c, venue: "coinbase" } : c);
+      }
+    } else if (hasDex && !hasCex) {
+      // Only DEX data — use a DEX venue
+      const dexVenues = ["jupiter", "raydium", "orca", "aggregated"];
+      if (!dexVenues.includes(config.venue)) {
+        setConfig((c) => ({ ...c, venue: "aggregated" }));
+      }
+    }
+  }, [fileSources, config.use_sources]);
+
   // Recent runs history
   const [history, setHistory] = useState<RunHistoryEntry[]>(loadHistory);
   const [historyOpen, setHistoryOpen] = useState(false);
