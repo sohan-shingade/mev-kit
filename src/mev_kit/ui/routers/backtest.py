@@ -17,6 +17,9 @@ _sweeper = SweepRunner()
 
 @router.post("/start")
 async def start_backtest(request: Request, body: dict[str, Any]) -> dict[str, str]:
+    import structlog
+    _log = structlog.get_logger()
+
     data_file = body.get("data_file") or body.get("data_path", "")
     # Prepend data dir if it's just a filename
     if data_file and "/" not in data_file:
@@ -24,12 +27,15 @@ async def start_backtest(request: Request, body: dict[str, Any]) -> dict[str, st
         data_file = f"{data_dir}/{data_file}"
     config = body.get("config", body)  # Accept both nested and flat
 
+    _log.info("backtest.start_request", data_file=data_file, strategy=config.get("strategy"), venue=config.get("venue"), config_keys=list(config.keys()), runner_state=_runner._state, full_body=body)
+
     # Pass through extra_data_files for multi-asset backtesting
     extra_data_files = body.get("extra_data_files", [])
     if extra_data_files:
         config["extra_data_files"] = extra_data_files
 
     if _runner._state == "running":
+        _log.warning("backtest.already_running")
         return {"status": "error", "error": "Backtest already running"}
     asyncio.create_task(_runner.run(data_path=data_file, config=config))
     return {"status": "started"}

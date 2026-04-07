@@ -42,14 +42,14 @@ LAMPORTS_PER_SOL = 1_000_000_000
 
 # Estimated pool depths (SOL reserves) for major pairs
 # Used when actual reserves aren't available in backtest data
-# Based on typical Raydium/Orca SOL/USDC pool sizes
+# Calibrated to realistic values — use set_volume_context() for dynamic depth
 DEFAULT_POOL_DEPTH_SOL = {
     "raydium": 50_000,    # ~$4M TVL one side
     "orca": 30_000,       # ~$2.5M TVL one side
     "jupiter": 80_000,    # Aggregated across venues
     "aggregated": 60_000, # Weighted average
-    "binance": 500_000,   # Deep order book — $40M+ depth
-    "coinbase": 200_000,  # Shallower than Binance for SOL
+    "binance": 5_000,     # ~$750K depth within 10 bps (NOT total book)
+    "coinbase": 3_000,    # ~$450K depth within 10 bps
 }
 
 VENUE_PROFILES: dict[str, dict[str, Any]] = {
@@ -127,7 +127,7 @@ VENUE_PROFILES: dict[str, dict[str, Any]] = {
         # CEX-specific params
         "maker_fee_bps": 10,           # 0.10% maker (VIP0)
         "taker_fee_bps": 10,           # 0.10% taker (VIP0)
-        "book_depth_usd": 5_000_000,   # Typical bid/ask depth within 10 bps
+        "book_depth_usd": 750_000,     # Realistic depth within 10 bps of mid
         "avg_spread_bps": 1.0,         # Tight spread on SOL/USDT
         "fill_rate": 0.98,             # Market orders almost always fill
     },
@@ -146,7 +146,7 @@ VENUE_PROFILES: dict[str, dict[str, Any]] = {
         "compute_units": 0,
         "maker_fee_bps": 6,            # 0.06% maker (Advanced Trading)
         "taker_fee_bps": 18,           # 0.18% taker (Advanced Trading)
-        "book_depth_usd": 2_000_000,   # SOL-USD depth thinner than Binance
+        "book_depth_usd": 400_000,     # SOL-USD depth thinner than Binance
         "avg_spread_bps": 2.0,         # Wider than Binance
         "fill_rate": 0.97,
     },
@@ -202,6 +202,18 @@ class FillSimulator(Simulator):
 
         # Dynamic pool depth from volume data
         self._dynamic_pool_depth: float | None = None
+        self._dynamic_book_depth_usd: float | None = None
+
+        # Volume-based CEX depth: depth_within_10bps ≈ 1% of daily volume
+        self._depth_pct_of_daily_vol: float = config.get("depth_pct_of_daily_vol", 0.01)
+
+        # Adverse selection parameters
+        # Base probability that a filled trade experiences spread reversion
+        self._adverse_base_rate: float = config.get("adverse_selection_rate", 0.55)
+        # How much larger spreads increase adverse probability
+        self._adverse_spread_sensitivity: float = config.get("adverse_spread_sensitivity", 0.012)
+        # Fraction of spread lost on adverse fill (mean reversion depth)
+        self._adverse_reversion_depth: float = config.get("adverse_reversion_depth", 0.65)
 
         # Real order book data (set via set_book_data())
         self._book_data: dict[str, dict[str, float]] = {}
@@ -212,6 +224,7 @@ class FillSimulator(Simulator):
         self._total_landed = 0
         self._total_profitable_after_costs = 0
         self._total_slippage_bps = 0.0
+        self._total_adverse_selected = 0
 
     def set_book_data(self, book_df: pl.DataFrame) -> None:
         """Load order book snapshots for realistic slippage.
@@ -268,18 +281,24 @@ class FillSimulator(Simulator):
     def set_volume_context(self, volume: float | None, interval_minutes: int = 1) -> None:
         """Update pool depth estimate from candle volume data.
 
-        Empirical: pool depth ~ 5% of daily volume for major pairs.
-        Scale down for smaller pairs.
+        DEX: pool depth ~ 5% of daily volume for major pairs.
+        CEX: top-of-book depth within 10 bps ~ 1% of daily volume.
 
         Args:
-            volume: Volume from the latest candle/price update.
+            volume: Volume from the latest candle/price update (in base token units).
             interval_minutes: Candle interval in minutes (for extrapolation to daily).
         """
         if volume is not None and volume > 0:
             daily_volume = volume * (1440 / max(1, interval_minutes))
             self._dynamic_pool_depth = max(1000.0, daily_volume * 0.05)
+
+            # Also update CEX book depth estimate from volume
+            # Depth within 10 bps ≈ 1% of daily volume in USD
+            daily_volume_usd = daily_volume * 130  # ~$130/SOL rough estimate
+            self._dynamic_book_depth_usd = max(50_000, daily_volume_usd * self._depth_pct_of_daily_vol)
         else:
             self._dynamic_pool_depth = None
+            self._dynamic_book_depth_usd = None
 
     async def simulate(self, opportunity: Opportunity) -> SimulationResult:
         """Simulate realistic fill for this opportunity."""
@@ -310,14 +329,9 @@ class FillSimulator(Simulator):
         )
         self._total_slippage_bps += slippage_bps
 
-        # ── Step 3: State staleness — price may have moved ──
-        # CEX: ~50-80ms latency, minimal decay
-        # DEX: ~2 seconds (5 slots), significant decay
+        # ── Step 3: State staleness — spread-proportional decay ──
         latency_slots = self.venue["avg_latency_slots"]
-        if self.venue.get("slippage_model") == "order_book":
-            staleness_decay_bps = self._rng.random() * 0.5  # 0-0.5 bps for CEX
-        else:
-            staleness_decay_bps = self._calc_staleness_decay(latency_slots)
+        staleness_decay_bps = self._calc_staleness_decay(latency_slots, spread_bps)
 
         # ── Step 4: Net spread after ALL costs ──
         total_cost_bps = fee_bps + slippage_bps + staleness_decay_bps
@@ -334,6 +348,37 @@ class FillSimulator(Simulator):
                     f"- {fee_bps:.1f} fee - {slippage_bps:.1f} slippage "
                     f"- {staleness_decay_bps:.1f} decay = {net_spread_bps:.1f} bps net"
                 ),
+                sim_latency_ms=latency_slots * self.venue["slot_time_ms"],
+                simulated=True,
+            )
+
+        # ── Step 4b: Adverse selection — spread may revert before fill ──
+        net_spread_bps = self._apply_adverse_selection(net_spread_bps, spread_bps)
+
+        # If adverse selection made net negative, record as a LOSS
+        if net_spread_bps < 0:
+            from mev_kit.utils.precision import sol_to_lamports, lamports_to_sol
+            size_lamports = sol_to_lamports(trade_size_sol)
+            loss_bps = abs(int(net_spread_bps))
+            loss_lam = (size_lamports * loss_bps) // 10_000
+            self._total_landed += 1
+            return SimulationResult(
+                opportunity_id=opportunity.id,
+                profitable=True,  # Still "landed" — but with negative P&L
+                gross_profit_sol=opportunity.estimated_profit_sol,
+                net_profit_sol=-lamports_to_sol(loss_lam),
+                sim_error=None,
+                sim_latency_ms=latency_slots * self.venue["slot_time_ms"],
+                simulated=True,
+            )
+
+        if net_spread_bps == 0:
+            return SimulationResult(
+                opportunity_id=opportunity.id,
+                profitable=False,
+                gross_profit_sol=opportunity.estimated_profit_sol,
+                net_profit_sol=0.0,
+                sim_error="Adverse selection: spread fully reverted",
                 sim_latency_ms=latency_slots * self.venue["slot_time_ms"],
                 simulated=True,
             )
@@ -426,8 +471,8 @@ class FillSimulator(Simulator):
         total_cost_bps = dex_cost_bps + cex_cost_bps
         self._total_slippage_bps += dex_slippage_bps + cex_slippage_bps
 
-        # State staleness for both legs
-        staleness_decay_bps = self._calc_staleness_decay(latency_slots)
+        # State staleness for both legs — spread-proportional
+        staleness_decay_bps = self._calc_staleness_decay(latency_slots, spread_bps)
         total_cost_bps += staleness_decay_bps
 
         net_spread_bps = spread_bps - total_cost_bps
@@ -444,6 +489,36 @@ class FillSimulator(Simulator):
                     f"- {cex_fee_bps:.1f} CEX fee - {cex_slippage_bps:.1f} CEX slip "
                     f"- {staleness_decay_bps:.1f} decay = {net_spread_bps:.1f} bps net"
                 ),
+                sim_latency_ms=latency_slots * self.venue["slot_time_ms"],
+                simulated=True,
+            )
+
+        # Adverse selection — spread may revert before fill
+        net_spread_bps = self._apply_adverse_selection(net_spread_bps, spread_bps)
+
+        if net_spread_bps < 0:
+            from mev_kit.utils.precision import sol_to_lamports, lamports_to_sol
+            size_lamports = sol_to_lamports(trade_size_sol)
+            loss_bps = abs(int(net_spread_bps))
+            loss_lam = (size_lamports * loss_bps) // 10_000
+            self._total_landed += 1
+            return SimulationResult(
+                opportunity_id=opportunity.id,
+                profitable=True,
+                gross_profit_sol=opportunity.estimated_profit_sol,
+                net_profit_sol=-lamports_to_sol(loss_lam),
+                sim_error=None,
+                sim_latency_ms=latency_slots * self.venue["slot_time_ms"],
+                simulated=True,
+            )
+
+        if net_spread_bps == 0:
+            return SimulationResult(
+                opportunity_id=opportunity.id,
+                profitable=False,
+                gross_profit_sol=opportunity.estimated_profit_sol,
+                net_profit_sol=0.0,
+                sim_error="Two-leg: spread fully reverted",
                 sim_latency_ms=latency_slots * self.venue["slot_time_ms"],
                 simulated=True,
             )
@@ -516,7 +591,11 @@ class FillSimulator(Simulator):
             cex_profile: Venue profile dict for the CEX.
         """
         avg_spread_bps = cex_profile.get("avg_spread_bps", 1.0)
-        book_depth_usd = cex_profile.get("book_depth_usd", 2_000_000)
+        # Use dynamic depth from volume if available
+        if self._dynamic_book_depth_usd is not None:
+            book_depth_usd = self._dynamic_book_depth_usd
+        else:
+            book_depth_usd = cex_profile.get("book_depth_usd", 750_000)
 
         half_spread = avg_spread_bps / 2.0
         trade_value_usd = trade_size_sol * 100  # ~$100/SOL estimate
@@ -629,7 +708,11 @@ class FillSimulator(Simulator):
                 book_depth_usd = max(book_depth_usd, 10_000)
         else:
             avg_spread_bps = self.venue.get("avg_spread_bps", 1.0)
-            book_depth_usd = self.venue.get("book_depth_usd", 2_000_000)
+            # Use dynamic depth from volume if available, else venue default
+            if self._dynamic_book_depth_usd is not None:
+                book_depth_usd = self._dynamic_book_depth_usd
+            else:
+                book_depth_usd = self.venue.get("book_depth_usd", 750_000)
 
         # Half-spread cost (crossing from mid to best bid/ask)
         half_spread = avg_spread_bps / 2.0
@@ -655,21 +738,75 @@ class FillSimulator(Simulator):
 
         return max(total, 0.05)
 
-    def _calc_staleness_decay(self, latency_slots: int) -> float:
-        """Model spread narrowing during execution latency.
+    def _calc_staleness_decay(self, latency_slots: int, spread_bps: float) -> float:
+        """Spread-proportional staleness decay during execution latency.
 
-        Between detection and bundle landing (~5 slots = 2 seconds),
-        other traders may capture part of the spread. Model as:
-        - Each slot has a probability of spread narrowing
-        - On average, ~20-40% of the spread decays per second
+        Large spreads attract competition and close faster:
+        - 5 bps spread: ~10-20% decays per second (noise, persists)
+        - 20 bps spread: ~30-50% decays per second (competitive)
+        - 50+ bps spread: ~60-80% decays per second (everyone sees it)
+
+        CEX venues have much lower latency (~50ms), so less decay.
         """
-        decay_per_slot = 0.04 + self._rng.random() * 0.04  # 4-8% per slot
-        total_decay_fraction = 1.0 - math.pow(1.0 - decay_per_slot, latency_slots)
-        # Return decay as fraction of the original spread — caller subtracts from spread_bps
-        # We return an ABSOLUTE bps amount, so we need the spread
-        # But we don't have it here — return the fraction, caller will handle
-        # Actually, let's model it as absolute: ~1-5 bps of decay for typical spreads
-        return (1.0 + self._rng.random() * 3.0) * total_decay_fraction
+        if spread_bps <= 0 or latency_slots <= 0:
+            # CEX with 0 latency slots still has API round-trip
+            if self.venue.get("slippage_model") == "order_book":
+                # 50-80ms CEX latency: small proportional decay
+                return spread_bps * (0.01 + self._rng.random() * 0.03)
+            return 0.0
+
+        # Half-life in slots: large spreads have shorter half-life
+        # 5 bps → ~8 slots, 20 bps → ~4 slots, 50 bps → ~2 slots
+        half_life_slots = max(1.0, 10.0 - spread_bps / 6.0)
+        decay_fraction = 1.0 - math.pow(0.5, latency_slots / half_life_slots)
+
+        # Apply noise (±30%)
+        noise = 0.7 + self._rng.random() * 0.6
+        staleness_bps = spread_bps * decay_fraction * noise
+
+        return max(staleness_bps, 0.0)
+
+    def _apply_adverse_selection(self, net_spread_bps: float, raw_spread_bps: float) -> float:
+        """Model adverse selection — fills are negatively selected.
+
+        In real markets, the trades you actually get filled on are
+        systematically the ones where the spread was about to revert.
+        Faster searchers took the good ones; you got the leftovers.
+
+        Larger spreads have higher adverse selection because they
+        attract more competition and are more likely to be transient.
+
+        The reversion applies to the RAW spread (not net), meaning
+        it can wipe out the entire net profit and produce a loss.
+        Example: 25 bps raw spread, 15 bps after costs = 10 bps net.
+        If 80% of the raw spread reverts = 20 bps reversion.
+        New net = 10 - 20 = -10 bps (losing trade).
+
+        Returns adjusted net_spread_bps (can go negative = losing trade).
+        """
+        # Probability of adverse fill increases with spread size
+        # Base 55% + 1.2% per bps of raw spread, capped at 85%
+        adverse_prob = min(
+            0.85,
+            self._adverse_base_rate + self._adverse_spread_sensitivity * raw_spread_bps,
+        )
+
+        if self._rng.random() >= adverse_prob:
+            # Lucky — no adverse selection, keep full profit
+            return net_spread_bps
+
+        self._total_adverse_selected += 1
+
+        # Reversion: fraction of the RAW spread that reverts
+        # Centered on 65%, range 35% to 95%
+        reversion_frac = self._adverse_reversion_depth + (self._rng.random() - 0.5) * 0.6
+        reversion_frac = max(0.2, min(1.1, reversion_frac))
+
+        # Reversion eats into the raw spread, reducing net by that amount
+        reversion_bps = raw_spread_bps * reversion_frac
+        adjusted = net_spread_bps - reversion_bps
+
+        return adjusted
 
     def _check_landing(self, spread_bps: float = 0) -> bool:
         """Dynamic Jito landing rate based on competition intensity.

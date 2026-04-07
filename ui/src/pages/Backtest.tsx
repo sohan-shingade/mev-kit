@@ -233,9 +233,11 @@ export default function Backtest() {
   const [compareIds, setCompareIds] = useState<[string | null, string | null]>([null, null]);
   const [compareOpen, setCompareOpen] = useState(false);
 
-  // Fetch strategy info when strategy changes
+  // Fetch strategy info when strategy changes — reset use_sources to "all"
   useEffect(() => {
     if (!config.strategy) return;
+    // Reset source selection so the new strategy gets all available data
+    setConfig((c) => ({ ...c, use_sources: [] }));
     get<StrategyInfo>(`/api/strategies/info/${config.strategy}`)
       .then((info) => {
         if (!info.error) setStrategyInfo(info);
@@ -319,7 +321,11 @@ export default function Backtest() {
       if (config.extra_data_files.length === 0) {
         delete payload.extra_data_files;
       }
-      await post("/api/backtest/start", payload);
+      const resp = await post<{ status: string; error?: string }>("/api/backtest/start", payload);
+      if (resp.status === "error") {
+        toast(resp.error ?? "Failed to start backtest", "error");
+        return;
+      }
       setStatus({ state: "running" });
       setPage(1);
       setSelectedHistoryId(null);
@@ -939,6 +945,11 @@ export default function Backtest() {
                     </span>
                   )}
                 </div>
+                {fileSources.merged && config.use_sources.length > 0 && config.use_sources.length < fileSources.sources.length && (
+                  <p className="text-[10px] text-accent-amber mt-1">
+                    Only {config.use_sources.join(" + ")} selected — most spread strategies need both DEX + CEX data
+                  </p>
+                )}
               </div>
             )}
 

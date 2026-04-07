@@ -109,6 +109,7 @@ class BacktestRunner:
         try:
             await self._run_pipeline(data_path, config)
         except Exception as exc:
+            logger.error("backtest_runner.pipeline_error", error=str(exc), exc_info=True)
             self._state = "error"
             self._results = {
                 "total_trades": 0, "total_profit_sol": 0.0,
