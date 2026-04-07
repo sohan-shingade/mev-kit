@@ -85,7 +85,7 @@ class RegimeSpreadDetector(Detector):
     # This strategy works with both CEX and DEX data but doesn't REQUIRE
     # both simultaneously — it can detect regimes from CEX-only or DEX-only
     # data, making it usable in single-source backtests too.
-    required_sources = {Source.BINANCE_WS, Source.HELIUS_WS, Source.PARQUET_REPLAY}
+    required_sources = {Source.BINANCE_WS, Source.COINBASE_WS, Source.HELIUS_WS, Source.PARQUET_REPLAY}
 
     def __init__(self, config: dict) -> None:
         super().__init__(config)
@@ -145,7 +145,7 @@ class RegimeSpreadDetector(Detector):
 
         # Update prices
         if update.price:
-            if update.source in {Source.BINANCE_WS}:
+            if update.source in {Source.BINANCE_WS, Source.COINBASE_WS}:
                 self._cex_price = update.price.price
             else:
                 self._dex_price = update.price.price

@@ -25,6 +25,7 @@ class Source(StrEnum):
     YELLOWSTONE_GRPC = "yellowstone_grpc"
     GEYSER = "geyser"
     BINANCE_WS = "binance_ws"
+    COINBASE_WS = "coinbase_ws"
     JUPITER_API = "jupiter_api"
     PARQUET_REPLAY = "parquet_replay"
     PUBLIC_RPC = "public_rpc"

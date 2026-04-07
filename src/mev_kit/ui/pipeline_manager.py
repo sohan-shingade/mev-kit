@@ -14,6 +14,7 @@ from typing import Any
 import structlog
 
 from mev_kit.adapters.ingest.binance_ws import BinanceWSAdapter
+from mev_kit.adapters.ingest.coinbase_ws import CoinbaseWSAdapter
 from mev_kit.adapters.ingest.helius_ws import HeliusWSAdapter
 from mev_kit.adapters.simulators.base import PassthroughSimulator, Simulator
 from mev_kit.adapters.simulators.rpc_simulator import RPCSimulator
@@ -170,7 +171,15 @@ def _build_pipeline(mode: str, config_overrides: dict) -> Pipeline:
     if mode in ("paper", "live"):
         if helius_key:
             adapters.append(HeliusWSAdapter({"helius_api_key": helius_key}))
-        adapters.append(BinanceWSAdapter({"symbol": "solusdt"}))
+        # Add CEX feeds — Binance by default, Coinbase if configured
+        cex_venue = config_overrides.get("cex_venue", "binance")
+        if cex_venue == "coinbase":
+            adapters.append(CoinbaseWSAdapter({"symbol": "SOL-USD"}))
+        else:
+            adapters.append(BinanceWSAdapter({"symbol": "solusdt"}))
+            # Optionally add Coinbase as second CEX source
+            if config_overrides.get("add_coinbase", False):
+                adapters.append(CoinbaseWSAdapter({"symbol": "SOL-USD"}))
 
     # Use _load_detector to support any registered strategy name
     strategy_name = config_overrides.get("strategy", config.strategy)

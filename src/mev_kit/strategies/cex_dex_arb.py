@@ -39,6 +39,7 @@ class CEXDEXArbDetector(Detector):
     # Declare required data sources for pipeline validation
     required_sources = {
         Source.BINANCE_WS,
+        Source.COINBASE_WS,
         Source.HELIUS_WS,
         Source.YELLOWSTONE_GRPC,
         Source.GEYSER,
@@ -46,7 +47,7 @@ class CEXDEXArbDetector(Detector):
     }
 
     # Sources we treat as CEX reference prices
-    CEX_SOURCES = {Source.BINANCE_WS}
+    CEX_SOURCES = {Source.BINANCE_WS, Source.COINBASE_WS}
 
     # Sources we treat as DEX prices
     DEX_SOURCES = {Source.HELIUS_WS, Source.YELLOWSTONE_GRPC, Source.GEYSER, Source.PARQUET_REPLAY}
