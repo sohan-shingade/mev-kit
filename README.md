@@ -11,18 +11,19 @@ Build, backtest, and paper-trade MEV strategies on Solana. The architecture is d
 - **Strategy research pipeline**: Source → Detector → Simulator → Sink → Monitor
 - **Web UI**: Backtesting, strategy editor (Monaco), data management, risk analytics
 - **Multi-venue data**: Binance, Coinbase, Birdeye, Helius — auto-merge with lookahead bias prevention
-- **Fill simulation**: Venue-specific fee/slippage modeling for backtests (estimated, not exact — see limitations)
+- **Live CEX WebSockets**: Binance and Coinbase real-time trade feeds, no API key needed
+- **Realistic fill simulation**: Adverse selection model, volume-based order book depth, spread-proportional staleness decay
 - **Risk analytics**: Sharpe ratio, max drawdown, equity curves, hourly heatmaps, survivorship bias warnings
 - **Strategy optimization**: Parameter sweeps, walk-forward validation, result versioning
-- **6 example detectors**: CEX-DEX arb, price momentum, spread tracker, multi-pool arb, liquidation, statistical arb
+- **7 detectors**: CEX-DEX arb, price momentum, spread tracker, multi-pool arb, liquidation, statistical arb, volatility regime spread
 
 ## What's experimental
 
-- **Live execution**: `JitoBundleSink` now builds real signed Solana transactions via `solders` for known pools (SOL/USDC Raydium). Falls back to placeholder for unknown pools. **Use with caution — tested against transaction structure, not against mainnet execution.**
+- **Live execution**: `JitoBundleSink` builds real signed Solana transactions via `solders` for known pools (SOL/USDC Raydium). Falls back to placeholder for unknown pools. **Use with caution — tested against transaction structure, not against mainnet execution.**
 - **RPC simulation**: `RPCSimulator` builds real Raydium swap transactions and submits to `simulateTransaction`. Works for known pool addresses. Unknown pools return a graceful error.
-- **Paper trading**: Requires live WebSocket connections (Helius + Binance). Works when API keys are configured but may fail silently on connection drops.
+- **Paper trading**: Requires live WebSocket connections (Helius + Binance or Coinbase). Works when API keys are configured but may fail silently on connection drops.
 - **Pool coverage**: Transaction construction is currently hardcoded for SOL/USDC Raydium AMM v4. Other pools need their account addresses added to the registry.
-- **Fill simulation accuracy**: Backtesting slippage uses estimated pool depth (not real on-chain reserves). Accuracy is within ~2-5x of real execution.
+- **Fill simulation accuracy**: Models adverse selection (~55% of fills experience spread reversion), volume-based order book depth, and spread-proportional staleness. Realism rating: **6/10** — directionally correct but still uses statistical models rather than tick-level replay.
 
 ## Quick start
 
@@ -62,9 +63,9 @@ Every layer is a pluggable interface. Free-tier defaults ship with the package. 
 
 | Layer | Free tier | Pro tier |
 |-------|-----------|----------|
-| **Source** | Helius WS, Binance WS, Birdeye, Parquet replay | Geyser, Yellowstone gRPC, ShredStream |
+| **Source** | Helius WS, Binance WS, Coinbase WS, Birdeye, Parquet replay | Geyser, Yellowstone gRPC, ShredStream |
 | **Detector** | CEX-DEX arb, momentum, spread tracker | Custom strategies via Strategy Editor |
-| **Simulator** | Passthrough, FillSimulator (venue-specific) | RPC simulator, forked validator |
+| **Simulator** | Passthrough, FillSimulator (adverse selection + volume depth) | RPC simulator, forked validator |
 | **Sink** | Paper trade (SQLite), Backtest (Parquet) | Jito bundle, multi-path |
 | **Monitor** | Prometheus metrics, structured logging | Custom dashboards |
 
@@ -87,14 +88,16 @@ Select market → Pick venues → Fetch → Auto-merge → Lag-correct → Backt
 ```
 
 Supported venues:
-- **Binance** / **Coinbase** / **Bybit** — CEX historical candles (free, no key)
+- **Binance** — CEX historical candles + live WebSocket trades (free, no key)
+- **Coinbase** — CEX historical candles + live WebSocket trades (free, no key)
+- **Bybit** — CEX historical candles (free, no key)
 - **Birdeye** — DEX historical prices aggregated across Raydium, Orca, Meteora, Phoenix
 - **Helius** — Live on-chain pool state polling
 - **Tardis.dev** — L2 order book snapshots for realistic CEX slippage (optional)
 
 ## Fill simulation
 
-Backtests model realistic execution per venue:
+Backtests model realistic execution per venue with three layers of realism:
 
 | Venue | Fee | Slippage model | Landing rate |
 |-------|-----|----------------|-------------|
@@ -104,7 +107,12 @@ Backtests model realistic execution per venue:
 | Binance | 10 bps taker | Order book (Almgren-Chriss) | 98% fill |
 | Coinbase | 18 bps taker | Order book | 97% fill |
 
-Two-leg modeling for arb strategies. Volume-weighted pool depth. Dynamic landing rates.
+**Realism features:**
+- **Adverse selection**: ~55-80% of fills experience spread reversion before execution (breaks the artificial 100% win rate)
+- **Volume-based depth**: Order book depth estimated from CEX candle volume (~1% of daily volume within 10 bps), not hardcoded
+- **Spread-proportional staleness**: Large spreads (30+ bps) decay 60-80%/sec as competition closes them; small spreads persist
+- **Two-leg arb modeling**: Separate cost simulation for DEX and CEX legs
+- **Dynamic landing rates**: Competition-adjusted Jito bundle landing probability
 
 ## Strategy development
 
@@ -171,7 +179,7 @@ src/mev_kit/
 ## Testing
 
 ```bash
-pytest tests/ -v          # 225 tests
+pytest tests/ -v          # 256 tests
 ruff check src/ tests/    # Lint
 cd ui && npx tsc --noEmit # TypeScript
 ```
@@ -187,7 +195,7 @@ This is an alpha research toolkit. Be aware of these gaps:
 | **Live execution** | Working for SOL/USDC | Real `solders`-built, keypair-signed transactions for Raydium AMM v4. Falls back to placeholder for unknown pools. Not yet mainnet-tested. |
 | **RPC simulation** | Working for known pools | Builds real swap transactions, submits to `simulateTransaction`. Unknown pools return graceful error. |
 | **Strategy generality** | Working | CLI and web UI both use dynamic `_load_detector()`. Any registered strategy works. |
-| **Fill accuracy** | ~2-5x of reality | Slippage, landing rates, and competition modeled with estimates, not empirical data. |
+| **Fill accuracy** | ~1.5-3x of reality | Adverse selection and volume-based depth are directionally correct. Still uses statistical models, not tick-level replay. |
 
 ### Roadmap to production
 
@@ -197,6 +205,10 @@ This is an alpha research toolkit. Be aware of these gaps:
 4. ~~Make CLI strategy selection dynamic (not hardcoded to one detector)~~ ✅
 5. ~~Expand pool registry beyond SOL/USDC (dynamic on-chain account lookup)~~ ✅
 6. ~~End-to-end mainnet test script (`scripts/test_mainnet_bundle.py --dry-run`)~~ ✅
+7. ~~Realistic fill simulation: adverse selection, volume-based depth, spread-proportional decay~~ ✅
+8. ~~Coinbase live WebSocket adapter~~ ✅
+9. Wire Tardis L2 snapshots into backtest flow for data-driven adverse selection
+10. Tick-level replay with actual order book state per timestamp
 
 ## License
 

@@ -15,19 +15,19 @@ Every layer is a pluggable interface. Free-tier defaults ship with the package. 
 ### Layer 1: IngestAdapter (data in)
 - Abstract base: `src/mev_kit/adapters/ingest/base.py`
 - Emits `StateUpdate` objects into an async queue
-- Free: HeliusWSAdapter, BinanceWSAdapter, JupiterAdapter, ParquetReplayAdapter
+- Free: HeliusWSAdapter, BinanceWSAdapter, CoinbaseWSAdapter, JupiterAdapter, ParquetReplayAdapter
 - Pro: GeyserAdapter, YellowstoneGRPCAdapter, ShredStreamAdapter
 
 ### Layer 2: Detector (opportunity detection)
 - Abstract base: `src/mev_kit/strategies/base.py`
 - Consumes `StateUpdate`, emits `Opportunity`
-- Ships with: CEXDEXArbDetector, SpreadTracker
+- Ships with: CEXDEXArbDetector, SpreadTracker, RegimeSpreadDetector, + 5 examples
 - Users implement custom detectors against the same interface
 
 ### Layer 3: Simulator (pre-execution validation)
 - Abstract base: `src/mev_kit/adapters/simulators/base.py`
 - Takes `Opportunity`, returns `SimulationResult` (profitable: bool, net_profit, compute_units)
-- Free: RPCSimulator (calls simulateTransaction via Helius free tier)
+- Free: RPCSimulator (calls simulateTransaction via Helius free tier), FillSimulator (adverse selection + volume-based depth)
 - Pro: LocalValidatorSimulator, ForkedStateSimulator
 
 ### Layer 4: Sink (execution output)
@@ -95,7 +95,9 @@ mev-kit/
 │   │   │   ├── base.py    ← IngestAdapter ABC
 │   │   │   ├── helius_ws.py
 │   │   │   ├── binance_ws.py
+│   │   │   ├── coinbase_ws.py
 │   │   │   ├── jupiter.py
+│   │   │   ├── merged_replay.py  ← DEX+CEX time-aligned replay
 │   │   │   └── parquet_replay.py
 │   │   ├── sinks/
 │   │   │   ├── __init__.py
@@ -106,11 +108,14 @@ mev-kit/
 │   │   └── simulators/
 │   │       ├── __init__.py
 │   │       ├── base.py    ← Simulator ABC
+│   │       ├── fill_simulator.py ← Venue-specific fill sim (adverse selection, volume depth)
 │   │       └── rpc_simulator.py
 │   ├── strategies/
 │   │   ├── __init__.py
 │   │   ├── base.py        ← Detector ABC
-│   │   └── cex_dex_arb.py ← Reference implementation
+│   │   ├── cex_dex_arb.py ← Reference implementation
+│   │   ├── regime_spread.py ← Volatility regime spread capture
+│   │   └── examples/      ← 5 example detectors
 │   └── utils/
 │       ├── __init__.py
 │       ├── logging.py
@@ -157,6 +162,8 @@ HELIUS_API_KEY=         # Free tier key from helius.dev
 HELIUS_RPC_URL=         # https://mainnet.helius-rpc.com/?api-key=...
 SOLANA_RPC_URL=         # Fallback public RPC
 BINANCE_WS_URL=         # wss://stream.binance.com:9443/ws (default, no key needed)
+COINBASE_WS_URL=        # wss://advanced-trade-ws.coinbase.com (default, no key needed)
+BIRDEYE_API_KEY=        # Free at birdeye.so — enables historical DEX prices
 JITO_BLOCK_ENGINE_URL=  # https://mainnet.block-engine.jito.wtf (for live mode)
 WALLET_KEYPAIR_PATH=    # Path to Solana keypair JSON (for live mode only)
 ```
@@ -175,7 +182,11 @@ WALLET_KEYPAIR_PATH=    # Path to Solana keypair JSON (for live mode only)
 
 ## Current status
 
-Project scaffold created. All abstract interfaces defined. Free-tier adapters need implementation. Reference CEX-DEX arb detector needs implementation. Pipeline runner needs implementation. Tests need writing.
+Alpha (v0.1.0). All 5 pipeline layers implemented and working. 256 tests passing.
+
+Working: backtesting with realistic fill simulation (adverse selection, volume-based depth), web UI with strategy editor, 7 detectors, Binance + Coinbase live WebSocket feeds, real Solana transaction construction via solders, Jito bundle submission.
+
+Experimental: live execution (tested with self-transfer on mainnet, not production-validated for real swaps).
 
 ## Priority order for implementation
 
